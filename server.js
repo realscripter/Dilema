@@ -48,39 +48,42 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('submit-dilemma', ({ roomCode, option1, option2 }) => {
+    socket.on('submit-dilemma', ({ roomCode, option1, option2, type }) => {
         const room = rooms[roomCode];
         if (room && room.turn === socket.id) {
-            room.dilemma = { option1, option2 };
-            // Switch turn immediately for next round logic, but first let the other player vote
-            // Actually, wait for vote before switching turn
-            socket.to(roomCode).emit('dilemma-received', { option1, option2 });
+            room.dilemma = { option1, option2, type };
+            socket.to(roomCode).emit('dilemma-received', { option1, option2, type });
             socket.emit('waiting-for-vote');
         }
     });
 
-    socket.on('vote', ({ roomCode, choice }) => {
+    socket.on('vote', ({ roomCode, choice, answer }) => {
         const room = rooms[roomCode];
         if (room) {
             // Send result to both
             io.to(roomCode).emit('vote-result', { 
                 choice, 
-                dilemma: room.dilemma 
+                dilemma: room.dilemma,
+                answer: answer || null
             });
             
             // Switch turn
             const otherPlayer = room.players.find(id => id !== room.turn);
             room.turn = otherPlayer;
+            const isQuestionMode = room.dilemma.type === 'question';
             room.dilemma = null;
             room.round++;
             
             // Start next round after a delay
+            // Longer delay if it was a question mode (to read the answer)
+            const delay = isQuestionMode ? 12000 : 6000;
+            
             setTimeout(() => {
                 io.to(roomCode).emit('new-round', { 
                     turn: room.turn,
                     round: room.round
                 });
-            }, 6000); // 6 seconds wait time
+            }, delay);
         }
     });
 

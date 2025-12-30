@@ -106,6 +106,33 @@ h2 {
     margin-left: 4px;
 }
 
+/* Mode Toggle */
+.mode-toggle {
+    display: flex;
+    background: var(--card-bg);
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: #a4b0be;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: 0.3s;
+}
+
+.mode-btn.active {
+    background: var(--secondary);
+    color: var(--text);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
 /* Controls */
 input, textarea {
     width: 100%;
@@ -258,7 +285,7 @@ textarea {
     display: none;
     flex-direction: column;
     flex: 1;
-    padding-top: 20px;
+    padding-top: 10px;
 }
 
 .view.active {
@@ -311,26 +338,40 @@ textarea {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Answer View */
+.selected-question-display {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    font-style: italic;
+    color: #a4b0be;
+    text-align: center;
+}
+
+#answer-input {
+    min-height: 150px;
+}
+
 /* Result */
 .result-box {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    margin-bottom: 2rem;
-    flex: 1;
+    margin-bottom: 1rem;
 }
 
 .result-card {
-    padding: 25px;
+    padding: 20px;
     background: var(--card-bg);
     border-radius: 16px;
     text-align: center;
     border: 3px solid transparent;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 100px;
+    min-height: 80px;
     opacity: 0.4;
     transition: all 0.5s ease;
 }
@@ -355,10 +396,31 @@ textarea {
     color: #a4b0be;
 }
 
+.answer-box {
+    background: #2f3542;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--accent);
+}
+
+.answer-box h4 {
+    color: var(--accent);
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.answer-box p {
+    font-style: italic;
+    line-height: 1.5;
+}
+
 /* Timer */
 .timer-container {
     width: 100%;
     margin-bottom: 20px;
+    margin-top: auto;
 }
 
 .timer-bar {

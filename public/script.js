@@ -11,6 +11,7 @@ const views = {
     creator: document.getElementById('creator-view'),
     voterWaiting: document.getElementById('voter-waiting-view'),
     vote: document.getElementById('vote-view'),
+    answer: document.getElementById('answer-view'),
     result: document.getElementById('result-view')
 };
 
@@ -23,8 +24,21 @@ const modal = document.getElementById('confirm-modal');
 const roundDisplay = document.getElementById('round-display');
 const timerProgress = document.getElementById('timer-progress');
 
+// Mode Toggle
+const modeDilemma = document.getElementById('mode-dilemma');
+const modeQuestion = document.getElementById('mode-question');
+const instructionText = document.getElementById('instruction-text');
+const answerInput = document.getElementById('answer-input');
+const submitAnswerBtn = document.getElementById('submit-answer-btn');
+const selectedQuestionText = document.getElementById('selected-question-text');
+const answerDisplay = document.getElementById('answer-display');
+const answerText = document.getElementById('answer-text');
+
 let currentRoom = null;
 let myId = null;
+let currentMode = 'dilemma'; // dilemma | question
+let currentDilemma = null;
+let selectedChoice = null;
 
 socket.on('connect', () => {
     myId = socket.id;
@@ -40,6 +54,26 @@ function showScreen(screenName) {
 function showView(viewName) {
     Object.values(views).forEach(v => v.classList.remove('active'));
     views[viewName].classList.add('active');
+}
+
+// Mode Selection Logic
+modeDilemma.addEventListener('click', () => setCreatorMode('dilemma'));
+modeQuestion.addEventListener('click', () => setCreatorMode('question'));
+
+function setCreatorMode(mode) {
+    currentMode = mode;
+    modeDilemma.classList.toggle('active', mode === 'dilemma');
+    modeQuestion.classList.toggle('active', mode === 'question');
+    
+    if (mode === 'dilemma') {
+        instructionText.textContent = 'Verzin een lastig dilemma.';
+        option1Input.placeholder = 'Optie 1...';
+        option2Input.placeholder = 'Optie 2...';
+    } else {
+        instructionText.textContent = 'Stel twee vragen. De ander kiest er één om te beantwoorden.';
+        option1Input.placeholder = 'Vraag 1...';
+        option2Input.placeholder = 'Vraag 2...';
+    }
 }
 
 // Landing Page Events
@@ -88,6 +122,10 @@ function handleTurn(turnId) {
     // Clear inputs
     option1Input.value = '';
     option2Input.value = '';
+    answerInput.value = '';
+    
+    // Default to dilemma mode for new turn
+    setCreatorMode('dilemma');
     
     if (turnId === socket.id) {
         showView('creator');
@@ -105,65 +143,108 @@ document.getElementById('submit-dilemma-btn').addEventListener('click', () => {
         socket.emit('submit-dilemma', {
             roomCode: currentRoom,
             option1: opt1,
-            option2: opt2
+            option2: opt2,
+            type: currentMode
         });
     } else {
-        alert('Vul beide opties in!');
+        alert('Vul alles in!');
     }
 });
 
 socket.on('waiting-for-vote', () => {
     showView('voterWaiting');
-    document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op stem...';
+    document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op keuze...';
 });
 
 // Voter Logic
-socket.on('dilemma-received', ({ option1, option2 }) => {
+socket.on('dilemma-received', ({ option1, option2, type }) => {
+    currentDilemma = { option1, option2, type };
+    
     voteBtn1.textContent = option1;
     voteBtn2.textContent = option2;
+    
+    if (type === 'question') {
+        document.querySelector('#vote-view h2').textContent = 'Kies een vraag om te beantwoorden';
+    } else {
+        document.querySelector('#vote-view h2').textContent = 'KIES!';
+    }
+    
     showView('vote');
 });
 
-voteBtn1.addEventListener('click', () => submitVote(1));
-voteBtn2.addEventListener('click', () => submitVote(2));
+voteBtn1.addEventListener('click', () => handleVoteChoice(1));
+voteBtn2.addEventListener('click', () => handleVoteChoice(2));
 
-function submitVote(choice) {
+function handleVoteChoice(choice) {
+    selectedChoice = choice;
+    
+    if (currentDilemma.type === 'question') {
+        // Go to answer view
+        const question = choice === 1 ? currentDilemma.option1 : currentDilemma.option2;
+        selectedQuestionText.textContent = question;
+        showView('answer');
+    } else {
+        // Submit immediately for dilemma
+        submitVote(choice, null);
+    }
+}
+
+submitAnswerBtn.addEventListener('click', () => {
+    const answer = answerInput.value.trim();
+    if (answer) {
+        submitVote(selectedChoice, answer);
+    } else {
+        alert('Vul een antwoord in!');
+    }
+});
+
+function submitVote(choice, answer) {
     socket.emit('vote', {
         roomCode: currentRoom,
-        choice: choice
+        choice: choice,
+        answer: answer
     });
 }
 
 // Results
-socket.on('vote-result', ({ choice, dilemma }) => {
+socket.on('vote-result', ({ choice, dilemma, answer }) => {
     const r1 = document.getElementById('result-option1');
     const r2 = document.getElementById('result-option2');
     
     r1.textContent = dilemma.option1;
     r2.textContent = dilemma.option2;
     
-    // Reset classes first
+    // Reset classes
     r1.className = 'result-card';
     r2.className = 'result-card';
-
-    // Force reflow
     void r1.offsetWidth;
 
     r1.classList.add(choice === 1 ? 'selected' : 'not-selected');
     r2.classList.add(choice === 2 ? 'selected' : 'not-selected');
     
-    document.getElementById('result-message').textContent = 
-        choice === 1 ? `Gekozen: ${dilemma.option1}` : `Gekozen: ${dilemma.option2}`;
+    let msg = choice === 1 ? `Gekozen: ${dilemma.option1}` : `Gekozen: ${dilemma.option2}`;
+    
+    if (dilemma.type === 'question' && answer) {
+        msg = "Vraag Beantwoord!";
+        answerDisplay.style.display = 'block';
+        answerText.textContent = answer;
+    } else {
+        answerDisplay.style.display = 'none';
+    }
+    
+    document.getElementById('result-message').textContent = msg;
 
     showView('result');
-    startProgressBar(6000); // 6 seconds
+    
+    // Longer wait time for question mode
+    const duration = (dilemma.type === 'question') ? 12000 : 6000;
+    startProgressBar(duration);
 });
 
 function startProgressBar(duration) {
     timerProgress.style.transition = 'none';
     timerProgress.style.width = '100%';
     
-    // Force reflow
     void timerProgress.offsetWidth;
     
     timerProgress.style.transition = `width ${duration}ms linear`;
@@ -172,7 +253,6 @@ function startProgressBar(duration) {
 
 socket.on('new-round', ({ turn, round }) => {
     updateRound(round);
-    // Reset waiting text
     document.querySelector('#voter-waiting-view h2').textContent = 'De andere maakt een dilemma...';
     handleTurn(turn);
 });
@@ -201,6 +281,8 @@ socket.on('player-left', () => {
 
 function resetGame() {
     currentRoom = null;
+    currentDilemma = null;
+    currentMode = 'dilemma';
     showScreen('landing');
     roomCodeInput.value = '';
 }

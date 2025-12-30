@@ -48,13 +48,20 @@
             <!-- Creator View: Input Dilemma -->
             <div id="creator-view" class="view">
                 <h2>Jouw Beurt!</h2>
-                <p>Verzin een lastig dilemma.</p>
+                
+                <!-- Mode Selection -->
+                <div class="mode-toggle">
+                    <button id="mode-dilemma" class="mode-btn active">Dilemma</button>
+                    <button id="mode-question" class="mode-btn">Open Vraag</button>
+                </div>
+
+                <p id="instruction-text">Verzin een lastig dilemma.</p>
                 <div class="inputs">
                     <textarea id="option1-input" placeholder="Optie 1..."></textarea>
                     <div class="vs">VS</div>
                     <textarea id="option2-input" placeholder="Optie 2..."></textarea>
                 </div>
-                <button id="submit-dilemma-btn" class="btn primary">Verstuur Dilemma</button>
+                <button id="submit-dilemma-btn" class="btn primary">Verstuur</button>
             </div>
 
             <!-- Voter View: Waiting for Dilemma -->
@@ -73,6 +80,16 @@
                 </div>
             </div>
 
+            <!-- Voter View: Answer Question (Only for Question Mode) -->
+            <div id="answer-view" class="view">
+                <h2>Antwoord geven</h2>
+                <div class="selected-question-display">
+                    <p id="selected-question-text"></p>
+                </div>
+                <textarea id="answer-input" placeholder="Typ hier je antwoord..."></textarea>
+                <button id="submit-answer-btn" class="btn primary">Verstuur Antwoord</button>
+            </div>
+
             <!-- Result View -->
             <div id="result-view" class="view">
                 <h2>Resultaat</h2>
@@ -81,6 +98,13 @@
                     <div id="result-option2" class="result-card"></div>
                 </div>
                 <p id="result-message"></p>
+                
+                <!-- Answer Display for Question Mode -->
+                <div id="answer-display" class="answer-box" style="display: none;">
+                    <h4>Gegeven Antwoord:</h4>
+                    <p id="answer-text"></p>
+                </div>
+
                 <div class="timer-container">
                     <div class="timer-bar">
                         <div id="timer-progress" class="timer-progress"></div>
