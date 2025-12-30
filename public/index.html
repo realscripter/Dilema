@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dilemma Spel</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Landing Screen -->
+        <div id="landing-screen" class="screen active">
+            <h1>DILEMMA</h1>
+            <p>Maak of join een party</p>
+            <div class="actions">
+                <button id="create-btn" class="btn primary">Maak Party</button>
+                <div class="divider">OF</div>
+                <div class="join-container">
+                    <input type="text" id="room-code-input" placeholder="Party Code (6 letters)" maxlength="6">
+                    <button id="join-btn" class="btn secondary">Join</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Waiting Screen -->
+        <div id="waiting-screen" class="screen">
+            <div class="header">
+                <span class="room-display">Code: <strong id="room-code-display">ABCDEF</strong></span>
+                <button id="leave-btn" class="btn small">Verlaten</button>
+            </div>
+            <div class="content centered">
+                <div class="loader"></div>
+                <h2>Wachten op andere speler...</h2>
+                <p>Deel de code met je vriend!</p>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="header">
+                <span class="room-display">Code: <strong id="game-room-code"></strong></span>
+                <button id="leave-game-btn" class="btn small">Verlaten</button>
+            </div>
+            
+            <!-- Creator View: Input Dilemma -->
+            <div id="creator-view" class="view">
+                <h2>Jouw Beurt!</h2>
+                <p>Bedenk een lastig dilemma.</p>
+                <div class="inputs">
+                    <textarea id="option1-input" placeholder="Optie 1..."></textarea>
+                    <div class="vs">VS</div>
+                    <textarea id="option2-input" placeholder="Optie 2..."></textarea>
+                </div>
+                <button id="submit-dilemma-btn" class="btn primary">Verstuur Dilemma</button>
+            </div>
+
+            <!-- Voter View: Waiting for Dilemma -->
+            <div id="voter-waiting-view" class="view">
+                <div class="loader"></div>
+                <h2>De andere maakt een dilemma...</h2>
+            </div>
+
+            <!-- Voter View: Vote -->
+            <div id="vote-view" class="view">
+                <h2>KIES!</h2>
+                <div class="options">
+                    <button id="vote-option1" class="btn option-btn">Optie 1</button>
+                    <div class="vs">VS</div>
+                    <button id="vote-option2" class="btn option-btn">Optie 2</button>
+                </div>
+            </div>
+
+            <!-- Result View -->
+            <div id="result-view" class="view">
+                <h2>Resultaat</h2>
+                <div class="result-box">
+                    <div id="result-option1" class="result-card"></div>
+                    <div id="result-option2" class="result-card"></div>
+                </div>
+                <p id="result-message"></p>
+                <p class="timer">Volgende ronde in <span id="countdown">3</span>...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <h3>Weet je het zeker?</h3>
+            <p>Je verlaat het spel.</p>
+            <div class="modal-actions">
+                <button id="confirm-leave" class="btn danger">Ja, wegwezen</button>
+                <button id="cancel-leave" class="btn secondary">Annuleren</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+
