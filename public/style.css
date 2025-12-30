@@ -106,31 +106,31 @@ h2 {
     margin-left: 4px;
 }
 
-/* Mode Toggle */
-.mode-toggle {
-    display: flex;
-    background: var(--card-bg);
-    padding: 4px;
-    border-radius: 12px;
+/* Mode Selection */
+.mode-select-container {
     margin-bottom: 20px;
 }
 
-.mode-btn {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    background: transparent;
-    color: #a4b0be;
+.mode-select {
+    width: 100%;
+    padding: 12px;
+    background: var(--card-bg);
+    color: var(--text);
+    border: 2px solid var(--secondary);
+    border-radius: 12px;
+    font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    border-radius: 8px;
-    transition: 0.3s;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.5em;
 }
 
-.mode-btn.active {
-    background: var(--secondary);
-    color: var(--text);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+.mode-select:focus {
+    outline: none;
+    border-color: var(--primary);
 }
 
 /* Controls */

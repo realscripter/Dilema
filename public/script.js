@@ -24,9 +24,8 @@ const modal = document.getElementById('confirm-modal');
 const roundDisplay = document.getElementById('round-display');
 const timerProgress = document.getElementById('timer-progress');
 
-// Mode Toggle
-const modeDilemma = document.getElementById('mode-dilemma');
-const modeQuestion = document.getElementById('mode-question');
+// Mode Selection
+const modeSelect = document.getElementById('mode-select');
 const instructionText = document.getElementById('instruction-text');
 const answerInput = document.getElementById('answer-input');
 const submitAnswerBtn = document.getElementById('submit-answer-btn');
@@ -57,13 +56,12 @@ function showView(viewName) {
 }
 
 // Mode Selection Logic
-modeDilemma.addEventListener('click', () => setCreatorMode('dilemma'));
-modeQuestion.addEventListener('click', () => setCreatorMode('question'));
+modeSelect.addEventListener('change', (e) => {
+    setCreatorMode(e.target.value);
+});
 
 function setCreatorMode(mode) {
     currentMode = mode;
-    modeDilemma.classList.toggle('active', mode === 'dilemma');
-    modeQuestion.classList.toggle('active', mode === 'question');
     
     if (mode === 'dilemma') {
         instructionText.textContent = 'Verzin een lastig dilemma.';
@@ -125,6 +123,7 @@ function handleTurn(turnId) {
     answerInput.value = '';
     
     // Default to dilemma mode for new turn
+    modeSelect.value = 'dilemma';
     setCreatorMode('dilemma');
     
     if (turnId === socket.id) {
