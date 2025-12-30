@@ -27,6 +27,7 @@ io.on('connection', (socket) => {
             players: [socket.id],
             turn: socket.id, // Creator starts
             dilemma: null,
+            round: 1,
             votes: {}
         };
         socket.join(roomCode);
@@ -39,7 +40,8 @@ io.on('connection', (socket) => {
             room.players.push(socket.id);
             socket.join(roomCode);
             io.to(roomCode).emit('game-start', { 
-                turn: room.turn 
+                turn: room.turn,
+                round: room.round
             });
         } else {
             socket.emit('error', 'Kamer is vol of bestaat niet.');
@@ -70,11 +72,15 @@ io.on('connection', (socket) => {
             const otherPlayer = room.players.find(id => id !== room.turn);
             room.turn = otherPlayer;
             room.dilemma = null;
+            room.round++;
             
             // Start next round after a delay
             setTimeout(() => {
-                io.to(roomCode).emit('new-round', { turn: room.turn });
-            }, 3000);
+                io.to(roomCode).emit('new-round', { 
+                    turn: room.turn,
+                    round: room.round
+                });
+            }, 6000); // 6 seconds wait time
         }
     });
 
@@ -107,4 +113,3 @@ const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
 });
-

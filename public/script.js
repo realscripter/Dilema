@@ -15,12 +15,13 @@ const views = {
 };
 
 const roomCodeInput = document.getElementById('room-code-input');
-const roomCodeDisplays = document.querySelectorAll('.room-display strong');
 const option1Input = document.getElementById('option1-input');
 const option2Input = document.getElementById('option2-input');
 const voteBtn1 = document.getElementById('vote-option1');
 const voteBtn2 = document.getElementById('vote-option2');
 const modal = document.getElementById('confirm-modal');
+const roundDisplay = document.getElementById('round-display');
+const timerProgress = document.getElementById('timer-progress');
 
 let currentRoom = null;
 let myId = null;
@@ -68,16 +69,20 @@ socket.on('error', (msg) => {
 
 function updateRoomCodeDisplay(code) {
     document.getElementById('room-code-display').textContent = code;
-    document.getElementById('game-room-code').textContent = code;
 }
 
 // Game Logic
-socket.on('game-start', ({ turn }) => {
+socket.on('game-start', ({ turn, round }) => {
     currentRoom = roomCodeInput.value.toUpperCase() || currentRoom;
     updateRoomCodeDisplay(currentRoom);
+    updateRound(round);
     showScreen('game');
     handleTurn(turn);
 });
+
+function updateRound(round) {
+    roundDisplay.textContent = round;
+}
 
 function handleTurn(turnId) {
     // Clear inputs
@@ -108,11 +113,8 @@ document.getElementById('submit-dilemma-btn').addEventListener('click', () => {
 });
 
 socket.on('waiting-for-vote', () => {
-    // Creator waits for vote
-    // We can reuse the voterWaiting view but change text, or just stay on creator view with disabled inputs?
-    // Let's create a specific visual state or just reuse voter waiting with custom text
     showView('voterWaiting');
-    document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de stem...';
+    document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op stem...';
 });
 
 // Voter Logic
@@ -140,31 +142,36 @@ socket.on('vote-result', ({ choice, dilemma }) => {
     r1.textContent = dilemma.option1;
     r2.textContent = dilemma.option2;
     
-    r1.className = 'result-card ' + (choice === 1 ? 'selected' : 'not-selected');
-    r2.className = 'result-card ' + (choice === 2 ? 'selected' : 'not-selected');
+    // Reset classes first
+    r1.className = 'result-card';
+    r2.className = 'result-card';
+
+    // Force reflow
+    void r1.offsetWidth;
+
+    r1.classList.add(choice === 1 ? 'selected' : 'not-selected');
+    r2.classList.add(choice === 2 ? 'selected' : 'not-selected');
     
     document.getElementById('result-message').textContent = 
-        choice === 1 ? `Er is gekozen voor: ${dilemma.option1}` : `Er is gekozen voor: ${dilemma.option2}`;
+        choice === 1 ? `Gekozen: ${dilemma.option1}` : `Gekozen: ${dilemma.option2}`;
 
     showView('result');
-    startCountdown();
+    startProgressBar(6000); // 6 seconds
 });
 
-function startCountdown() {
-    let count = 3;
-    const el = document.getElementById('countdown');
-    el.textContent = count;
+function startProgressBar(duration) {
+    timerProgress.style.transition = 'none';
+    timerProgress.style.width = '100%';
     
-    const interval = setInterval(() => {
-        count--;
-        el.textContent = count;
-        if (count <= 0) {
-            clearInterval(interval);
-        }
-    }, 1000);
+    // Force reflow
+    void timerProgress.offsetWidth;
+    
+    timerProgress.style.transition = `width ${duration}ms linear`;
+    timerProgress.style.width = '0%';
 }
 
-socket.on('new-round', ({ turn }) => {
+socket.on('new-round', ({ turn, round }) => {
+    updateRound(round);
     // Reset waiting text
     document.querySelector('#voter-waiting-view h2').textContent = 'De andere maakt een dilemma...';
     handleTurn(turn);
@@ -197,4 +204,3 @@ function resetGame() {
     showScreen('landing');
     roomCodeInput.value = '';
 }
-

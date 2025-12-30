@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dilemma Spel</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
                 <button id="create-btn" class="btn primary">Maak Party</button>
                 <div class="divider">OF</div>
                 <div class="join-container">
-                    <input type="text" id="room-code-input" placeholder="Party Code (6 letters)" maxlength="6">
+                    <input type="text" id="room-code-input" placeholder="CODE" maxlength="6">
                     <button id="join-btn" class="btn secondary">Join</button>
                 </div>
             </div>
@@ -31,22 +31,24 @@
             </div>
             <div class="content centered">
                 <div class="loader"></div>
-                <h2>Wachten op andere speler...</h2>
+                <h2>Wachten op speler 2...</h2>
                 <p>Deel de code met je vriend!</p>
             </div>
         </div>
 
         <!-- Game Screen -->
         <div id="game-screen" class="screen">
-            <div class="header">
-                <span class="room-display">Code: <strong id="game-room-code"></strong></span>
-                <button id="leave-game-btn" class="btn small">Verlaten</button>
+            <div class="header game-header">
+                <div class="room-info">
+                    <span class="round-badge">Ronde <span id="round-display">1</span></span>
+                </div>
+                <button id="leave-game-btn" class="btn small icon-btn">✕</button>
             </div>
             
             <!-- Creator View: Input Dilemma -->
             <div id="creator-view" class="view">
                 <h2>Jouw Beurt!</h2>
-                <p>Bedenk een lastig dilemma.</p>
+                <p>Verzin een lastig dilemma.</p>
                 <div class="inputs">
                     <textarea id="option1-input" placeholder="Optie 1..."></textarea>
                     <div class="vs">VS</div>
@@ -66,7 +68,7 @@
                 <h2>KIES!</h2>
                 <div class="options">
                     <button id="vote-option1" class="btn option-btn">Optie 1</button>
-                    <div class="vs">VS</div>
+                    <div class="vs-small">VS</div>
                     <button id="vote-option2" class="btn option-btn">Optie 2</button>
                 </div>
             </div>
@@ -79,7 +81,11 @@
                     <div id="result-option2" class="result-card"></div>
                 </div>
                 <p id="result-message"></p>
-                <p class="timer">Volgende ronde in <span id="countdown">3</span>...</p>
+                <div class="timer-container">
+                    <div class="timer-bar">
+                        <div id="timer-progress" class="timer-progress"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -87,11 +93,11 @@
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="modal">
         <div class="modal-content">
-            <h3>Weet je het zeker?</h3>
-            <p>Je verlaat het spel.</p>
+            <h3>Stoppen?</h3>
+            <p>Je verlaat het huidige spel.</p>
             <div class="modal-actions">
-                <button id="confirm-leave" class="btn danger">Ja, wegwezen</button>
-                <button id="cancel-leave" class="btn secondary">Annuleren</button>
+                <button id="confirm-leave" class="btn danger">Stoppen</button>
+                <button id="cancel-leave" class="btn secondary">Doorgaan</button>
             </div>
         </div>
     </div>
@@ -100,4 +106,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
