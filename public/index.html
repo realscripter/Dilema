@@ -17,7 +17,7 @@
                 <input type="text" id="username-input" placeholder="JOUW NAAM" maxlength="12">
             </div>
 
-            <p>Maak of join een party</p>
+            <p class="landing-text">Maak of join een party</p>
             <div class="actions">
                 <button id="create-init-btn" class="btn primary">Maak Party</button>
                 <div class="divider">OF</div>
@@ -59,7 +59,7 @@
                 </div>
             </div>
 
-            <button id="create-confirm-btn" class="btn primary">Start Party</button>
+            <button id="create-confirm-btn" class="btn primary">Start Lobby</button>
         </div>
 
         <!-- Waiting Screen -->
@@ -75,6 +75,9 @@
                 <div id="player-list" class="player-list">
                     <!-- Players will be listed here -->
                 </div>
+                
+                <button id="host-start-btn" class="btn primary" style="display: none; margin-bottom: 20px;">Start Nu Spelen</button>
+                
                 <p>Deel de code met je vrienden!</p>
             </div>
         </div>
@@ -152,7 +155,6 @@
 
             <!-- Voter View: Answer Question (Only for Question Mode) -->
             <div id="answer-view" class="view">
-                <!-- Use a separate div for this local header to avoid conflicts -->
                 <div class="back-header">
                     <button id="back-vote-btn" class="btn small icon-btn">←</button>
                     <h2>Antwoord geven</h2>

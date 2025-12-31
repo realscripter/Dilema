@@ -38,7 +38,8 @@ io.on('connection', (socket) => {
                 maxPlayers: maxPlayers || 2,
                 mode: gameMode || 'mixed'
             },
-            turnIndex: 0, // Index of the player whose turn it is
+            started: false, // Flag to prevent joining mid-game
+            turnIndex: 0, 
             dilemma: null,
             round: 1,
             votes: {}
@@ -53,6 +54,11 @@ io.on('connection', (socket) => {
         
         if (!room) {
             socket.emit('error', 'Kamer bestaat niet.');
+            return;
+        }
+
+        if (room.started) {
+            socket.emit('error', 'Dit spel is al begonnen!');
             return;
         }
 
@@ -85,16 +91,29 @@ io.on('connection', (socket) => {
         // Notify everyone in room of new player list
         io.to(roomCode).emit('player-update', room.players);
 
-        // Start game if enough players
+        // Auto-start only if max players reached
         if (room.players.length === parseInt(room.settings.maxPlayers)) {
             startGame(roomCode);
         }
     });
 
+    socket.on('start-game-request', (roomCode) => {
+        const room = rooms[roomCode];
+        // Only the host (first player) can start
+        if (room && room.players[0].id === socket.id) {
+            if (room.players.length >= 2) {
+                startGame(roomCode);
+            } else {
+                socket.emit('error', 'Er zijn minimaal 2 spelers nodig!');
+            }
+        }
+    });
+
     function startGame(roomCode) {
         const room = rooms[roomCode];
-        if (!room) return;
+        if (!room || room.started) return;
 
+        room.started = true;
         io.to(roomCode).emit('game-start', { 
             turnId: room.players[room.turnIndex].id,
             round: room.round,
@@ -124,12 +143,10 @@ io.on('connection', (socket) => {
             room.votes[socket.id] = { choice, answer };
 
             // Check if everyone (except creator) has voted
-            // Creators don't vote
             const votersCount = room.players.length - 1;
             const currentVotes = Object.keys(room.votes).length;
 
             if (currentVotes >= votersCount) {
-                // All votes in
                 finishRound(roomCode);
             }
         }
@@ -141,7 +158,7 @@ io.on('connection', (socket) => {
 
         let count1 = 0;
         let count2 = 0;
-        let answers = []; // For open questions
+        let answers = []; 
 
         Object.values(room.votes).forEach(v => {
             if (v.choice === 1) count1++;
@@ -149,13 +166,13 @@ io.on('connection', (socket) => {
             if (v.answer) answers.push(v.answer);
         });
 
-        const winningChoice = count1 >= count2 ? 1 : 2; // Tie goes to 1 for now (or random?)
+        const winningChoice = count1 >= count2 ? 1 : 2;
 
         io.to(roomCode).emit('vote-result', { 
             winningChoice,
             stats: { 1: count1, 2: count2 },
             dilemma: room.dilemma,
-            answers: answers // Send all answers
+            answers: answers 
         });
 
         // Reset for next round
@@ -169,7 +186,7 @@ io.on('connection', (socket) => {
         const delay = (answers.length > 0) ? 12000 : 6000;
         
         setTimeout(() => {
-            if (rooms[roomCode]) { // Check if room still exists
+            if (rooms[roomCode]) { 
                 io.to(roomCode).emit('new-round', { 
                     turnId: room.players[room.turnIndex].id,
                     round: room.round
@@ -195,9 +212,8 @@ io.on('connection', (socket) => {
 function handleDisconnect(socket, roomCode) {
     const room = rooms[roomCode];
     if (room) {
-        // Remove player
         const playerIndex = room.players.findIndex(p => p.id === socket.id);
-        if (playerIndex === -1) return; // Already removed
+        if (playerIndex === -1) return; 
 
         const wasCreator = (playerIndex === room.turnIndex);
         const leavingPlayerName = room.players[playerIndex].name;
@@ -205,32 +221,28 @@ function handleDisconnect(socket, roomCode) {
         room.players.splice(playerIndex, 1);
         socket.leave(roomCode);
 
-        // Notify others
         io.to(roomCode).emit('player-left', { 
             name: leavingPlayerName,
             remaining: room.players 
         });
 
-        // If not enough players, destroy room or reset?
         if (room.players.length < 2 && room.settings.maxPlayers > 1) { 
              io.to(roomCode).emit('game-ended', 'Te weinig spelers over.');
              delete rooms[roomCode];
              io.in(roomCode).socketsLeave(roomCode);
         } else {
-             // Adjust turn index if needed
              if (wasCreator) {
                  room.turnIndex = room.turnIndex % room.players.length;
-                 // Immediate new round or reset turn?
-                 // Simple: Restart round logic
-                 io.to(roomCode).emit('new-round', {
-                     turnId: room.players[room.turnIndex].id,
-                     round: room.round
-                 });
+                 if (room.started) {
+                    io.to(roomCode).emit('new-round', {
+                        turnId: room.players[room.turnIndex].id,
+                        round: room.round
+                    });
+                 }
              } else if (playerIndex < room.turnIndex) {
                  room.turnIndex--;
              }
              
-             // Update player list for those remaining
              io.to(roomCode).emit('player-update', room.players);
         }
     }

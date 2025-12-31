@@ -304,6 +304,13 @@ textarea {
     text-align: center;
 }
 
+.landing-text {
+    color: #a4b0be;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
 .name-container {
     margin-bottom: 2rem;
 }
@@ -400,13 +407,26 @@ textarea {
 
 .player-item {
     background: var(--card-bg);
-    padding: 12px;
-    border-radius: 10px;
+    padding: 14px 20px;
+    border-radius: 16px;
     font-weight: 600;
     animation: fadeIn 0.3s;
     text-align: left;
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.role-badge {
+    background: var(--primary);
+    color: white;
+    font-size: 0.7rem;
+    padding: 4px 10px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 800;
 }
 
 /* Game Screens */
