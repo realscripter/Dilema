@@ -106,31 +106,63 @@ h2 {
     margin-left: 4px;
 }
 
-/* Mode Selection */
-.mode-select-container {
-    margin-bottom: 20px;
+.opponents-info {
+    font-size: 0.9rem;
+    color: #a4b0be;
+    font-weight: 600;
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
 }
 
-.mode-select {
-    width: 100%;
-    padding: 12px;
+/* Settings Screen */
+.settings-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.setting-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: #a4b0be;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+
+.toggle-options {
+    display: flex;
     background: var(--card-bg);
-    color: var(--text);
-    border: 2px solid var(--secondary);
-    border-radius: 12px;
-    font-size: 1rem;
+    padding: 5px;
+    border-radius: 14px;
+    gap: 5px;
+}
+
+.toggle-options.vertical {
+    flex-direction: column;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    color: #747d8c;
+    border-radius: 10px;
     font-weight: 600;
     cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 1rem center;
-    background-size: 1.5em;
+    transition: 0.3s;
 }
 
-.mode-select:focus {
-    outline: none;
-    border-color: var(--primary);
+.toggle-btn.active {
+    background: var(--secondary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 /* Controls */
@@ -219,6 +251,16 @@ textarea {
     justify-content: center;
 }
 
+.name-container {
+    margin-bottom: 2rem;
+}
+
+#username-input {
+    text-align: center;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
 .actions {
     display: flex;
     flex-direction: column;
@@ -280,6 +322,22 @@ textarea {
     100% { transform: rotate(360deg); }
 }
 
+.player-list {
+    margin: 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.player-item {
+    background: var(--card-bg);
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    animation: fadeIn 0.3s;
+}
+
 /* Game Screens */
 .view {
     display: none;
@@ -290,6 +348,57 @@ textarea {
 
 .view.active {
     display: flex;
+}
+
+/* Creator Choice */
+.choice-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.choice-card {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 30px;
+    font-size: 1.2rem;
+    gap: 20px;
+    border: 2px solid transparent;
+}
+
+.choice-card .icon {
+    font-size: 2rem;
+    background: rgba(255,255,255,0.1);
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.choice-card:hover {
+    border-color: var(--primary);
+}
+
+.input-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.input-header h2 {
+    margin-bottom: 0;
+}
+
+.input-header #back-choice-btn {
+    position: absolute;
+    left: 0;
 }
 
 .vs {
@@ -486,4 +595,5 @@ textarea {
     h1 { font-size: 2.5rem; margin-bottom: 1rem; }
     .option-btn { min-height: 100px; }
     .loader { width: 40px; height: 40px; margin-bottom: 1rem; }
+    .choice-card { height: 80px; }
 }

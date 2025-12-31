@@ -3,45 +3,75 @@ const socket = io();
 // DOM Elements
 const screens = {
     landing: document.getElementById('landing-screen'),
+    settings: document.getElementById('settings-screen'),
     waiting: document.getElementById('waiting-screen'),
     game: document.getElementById('game-screen')
 };
 
 const views = {
-    creator: document.getElementById('creator-view'),
+    creatorChoice: document.getElementById('creator-choice-view'),
+    creatorInput: document.getElementById('creator-input-view'),
     voterWaiting: document.getElementById('voter-waiting-view'),
     vote: document.getElementById('vote-view'),
     answer: document.getElementById('answer-view'),
     result: document.getElementById('result-view')
 };
 
+// Inputs
+const usernameInput = document.getElementById('username-input');
 const roomCodeInput = document.getElementById('room-code-input');
 const option1Input = document.getElementById('option1-input');
 const option2Input = document.getElementById('option2-input');
+const answerInput = document.getElementById('answer-input');
+
+// Buttons
+const createInitBtn = document.getElementById('create-init-btn');
+const joinBtn = document.getElementById('join-btn');
+const backSettingsBtn = document.getElementById('back-settings-btn');
+const createConfirmBtn = document.getElementById('create-confirm-btn');
+const leaveBtn = document.getElementById('leave-btn');
+const leaveGameBtn = document.getElementById('leave-game-btn');
+const choiceDilemmaBtn = document.getElementById('choice-dilemma-btn');
+const choiceQuestionBtn = document.getElementById('choice-question-btn');
+const backChoiceBtn = document.getElementById('back-choice-btn');
+const submitDilemmaBtn = document.getElementById('submit-dilemma-btn');
 const voteBtn1 = document.getElementById('vote-option1');
 const voteBtn2 = document.getElementById('vote-option2');
-const modal = document.getElementById('confirm-modal');
+const submitAnswerBtn = document.getElementById('submit-answer-btn');
+
+// Display Elements
+const roomCodeDisplay = document.getElementById('room-code-display');
+const playerList = document.getElementById('player-list');
+const opponentsDisplay = document.getElementById('opponents-display');
 const roundDisplay = document.getElementById('round-display');
 const timerProgress = document.getElementById('timer-progress');
-
-// Mode Selection
-const modeSelect = document.getElementById('mode-select');
-const instructionText = document.getElementById('instruction-text');
-const answerInput = document.getElementById('answer-input');
-const submitAnswerBtn = document.getElementById('submit-answer-btn');
 const selectedQuestionText = document.getElementById('selected-question-text');
 const answerDisplay = document.getElementById('answer-display');
 const answerText = document.getElementById('answer-text');
+const creatorNameDisplay = document.getElementById('creator-name-display');
+const resultMessage = document.getElementById('result-message');
 
-let currentRoom = null;
+// Modals
+const confirmModal = document.getElementById('confirm-modal');
+const alertModal = document.getElementById('alert-modal');
+const alertTitle = document.getElementById('alert-title');
+const alertMessage = document.getElementById('alert-message');
+const alertOkBtn = document.getElementById('alert-ok-btn');
+
+// State
 let myId = null;
-let currentMode = 'dilemma'; // dilemma | question
+let myName = "";
+let currentRoom = null;
+let currentMode = 'dilemma'; 
+let currentSettings = { maxPlayers: 2, mode: 'mixed' };
 let currentDilemma = null;
 let selectedChoice = null;
+let players = [];
 
+// Socket Init
 socket.on('connect', () => {
     myId = socket.id;
-    console.log('Connected with ID:', myId);
+    console.log('Connected:', myId);
 });
 
 // Navigation
@@ -55,86 +85,199 @@ function showView(viewName) {
     views[viewName].classList.add('active');
 }
 
-// Mode Selection Logic
-modeSelect.addEventListener('change', (e) => {
-    setCreatorMode(e.target.value);
-});
-
-function setCreatorMode(mode) {
-    currentMode = mode;
+function showAlert(title, msg, onOk = null) {
+    alertTitle.textContent = title;
+    alertMessage.textContent = msg;
+    alertModal.classList.add('active');
     
-    if (mode === 'dilemma') {
-        instructionText.textContent = 'Verzin een lastig dilemma.';
-        option1Input.placeholder = 'Optie 1...';
-        option2Input.placeholder = 'Optie 2...';
-    } else {
-        instructionText.textContent = 'Stel twee vragen. De ander kiest er één om te beantwoorden.';
-        option1Input.placeholder = 'Vraag 1...';
-        option2Input.placeholder = 'Vraag 2...';
-    }
+    alertOkBtn.onclick = () => {
+        alertModal.classList.remove('active');
+        if (onOk) onOk();
+    };
 }
 
-// Landing Page Events
-document.getElementById('create-btn').addEventListener('click', () => {
-    socket.emit('create-room');
+// Input Validation
+usernameInput.addEventListener('input', (e) => {
+    // Remove spaces and keep max 12
+    e.target.value = e.target.value.replace(/\s/g, '').slice(0, 12);
 });
 
-document.getElementById('join-btn').addEventListener('click', () => {
-    const code = roomCodeInput.value.toUpperCase();
-    if (code.length === 6) {
-        socket.emit('join-room', code);
-    } else {
-        alert('Code moet 6 letters zijn!');
+function validateName() {
+    const name = usernameInput.value.trim();
+    if (!name) {
+        showAlert('Fout', 'Vul eerst een naam in!');
+        return false;
+    }
+    if (name.length > 12) {
+        showAlert('Fout', 'Naam te lang (max 12)!');
+        return false;
+    }
+    myName = name;
+    return true;
+}
+
+// Create Flow
+createInitBtn.addEventListener('click', () => {
+    if (validateName()) {
+        showScreen('settings');
     }
 });
 
-// Room Events
-socket.on('room-created', (code) => {
+backSettingsBtn.addEventListener('click', () => {
+    showScreen('landing');
+});
+
+// Settings Toggles
+document.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const parent = e.target.parentElement;
+        parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        if (parent.id === 'size-options') {
+            currentSettings.maxPlayers = parseInt(e.target.dataset.value);
+        } else if (parent.id === 'mode-options') {
+            currentSettings.mode = e.target.dataset.value;
+        }
+    });
+});
+
+createConfirmBtn.addEventListener('click', () => {
+    socket.emit('create-room', {
+        playerName: myName,
+        maxPlayers: currentSettings.maxPlayers,
+        gameMode: currentSettings.mode
+    });
+});
+
+// Join Flow
+joinBtn.addEventListener('click', () => {
+    if (!validateName()) return;
+    
+    const code = roomCodeInput.value.toUpperCase();
+    if (code.length === 6) {
+        socket.emit('join-room', { roomCode: code, playerName: myName });
+    } else {
+        showAlert('Fout', 'Code moet 6 letters zijn!');
+    }
+});
+
+// Socket Events: Room Setup
+socket.on('room-created', ({ code, players: pList }) => {
     currentRoom = code;
-    updateRoomCodeDisplay(code);
+    updatePlayerList(pList);
+    roomCodeDisplay.textContent = code;
     showScreen('waiting');
 });
 
-socket.on('error', (msg) => {
-    alert(msg);
+socket.on('player-update', (pList) => {
+    updatePlayerList(pList);
 });
 
-function updateRoomCodeDisplay(code) {
-    document.getElementById('room-code-display').textContent = code;
+function updatePlayerList(pList) {
+    players = pList;
+    playerList.innerHTML = '';
+    pList.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'player-item';
+        div.textContent = p.name + (p.id === myId ? ' (Jij)' : '');
+        playerList.appendChild(div);
+    });
+
+    // Update opponents text for game screen
+    const opponentNames = pList
+        .filter(p => p.id !== myId)
+        .map(p => p.name)
+        .join(', ');
+    opponentsDisplay.textContent = opponentNames || 'Wachten...';
 }
 
-// Game Logic
-socket.on('game-start', ({ turn, round }) => {
-    currentRoom = roomCodeInput.value.toUpperCase() || currentRoom;
-    updateRoomCodeDisplay(currentRoom);
-    updateRound(round);
-    showScreen('game');
-    handleTurn(turn);
+socket.on('error', (msg) => {
+    showAlert('Fout', msg);
 });
 
-function updateRound(round) {
-    roundDisplay.textContent = round;
+// Game Start
+socket.on('game-start', ({ turnId, round, players: pList, settings }) => {
+    currentSettings = settings;
+    updatePlayerList(pList);
+    updateRound(round);
+    showScreen('game');
+    handleTurn(turnId);
+});
+
+function updateRound(r) {
+    roundDisplay.textContent = r;
 }
 
 function handleTurn(turnId) {
-    // Clear inputs
+    // Reset inputs
     option1Input.value = '';
     option2Input.value = '';
     answerInput.value = '';
     
-    // Default to dilemma mode for new turn
-    modeSelect.value = 'dilemma';
-    setCreatorMode('dilemma');
-    
-    if (turnId === socket.id) {
-        showView('creator');
+    if (turnId === myId) {
+        setupCreatorView();
     } else {
+        // Find creator name
+        const creator = players.find(p => p.id === turnId);
+        creatorNameDisplay.textContent = creator ? creator.name : 'De ander';
         showView('voterWaiting');
     }
 }
 
 // Creator Logic
-document.getElementById('submit-dilemma-btn').addEventListener('click', () => {
+function setupCreatorView() {
+    // Check mode settings to decide what to show
+    const mode = currentSettings.mode; // mixed, dilemma-only, question-only
+    
+    if (mode === 'dilemma-only') {
+        setCreatorMode('dilemma');
+        showView('creatorInput');
+        document.getElementById('back-choice-btn').style.display = 'none'; // No back button needed
+    } else if (mode === 'question-only') {
+        setCreatorMode('question');
+        showView('creatorInput');
+        document.getElementById('back-choice-btn').style.display = 'none';
+    } else {
+        // Mixed: Show choice
+        showView('creatorChoice');
+        document.getElementById('back-choice-btn').style.display = 'block';
+    }
+}
+
+choiceDilemmaBtn.addEventListener('click', () => {
+    setCreatorMode('dilemma');
+    showView('creatorInput');
+});
+
+choiceQuestionBtn.addEventListener('click', () => {
+    setCreatorMode('question');
+    showView('creatorInput');
+});
+
+backChoiceBtn.addEventListener('click', () => {
+    showView('creatorChoice');
+});
+
+function setCreatorMode(mode) {
+    currentMode = mode;
+    const title = document.getElementById('input-title');
+    const instruction = document.getElementById('instruction-text');
+    
+    if (mode === 'dilemma') {
+        title.textContent = 'Nieuw Dilemma';
+        instruction.textContent = 'Verzin een lastig dilemma.';
+        option1Input.placeholder = 'Optie 1...';
+        option2Input.placeholder = 'Optie 2...';
+    } else {
+        title.textContent = 'Nieuwe Vragen';
+        instruction.textContent = 'Stel twee vragen. De anderen kiezen er één.';
+        option1Input.placeholder = 'Vraag 1...';
+        option2Input.placeholder = 'Vraag 2...';
+    }
+}
+
+submitDilemmaBtn.addEventListener('click', () => {
     const opt1 = option1Input.value.trim();
     const opt2 = option2Input.value.trim();
 
@@ -146,26 +289,27 @@ document.getElementById('submit-dilemma-btn').addEventListener('click', () => {
             type: currentMode
         });
     } else {
-        alert('Vul alles in!');
+        showAlert('Let op', 'Vul beide opties in!');
     }
 });
 
 socket.on('waiting-for-vote', () => {
     showView('voterWaiting');
-    document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op keuze...';
+    document.querySelector('#voter-waiting-view h2').innerHTML = 'Wachten op keuze...';
 });
 
 // Voter Logic
-socket.on('dilemma-received', ({ option1, option2, type }) => {
+socket.on('dilemma-received', ({ option1, option2, type, creatorName }) => {
     currentDilemma = { option1, option2, type };
     
     voteBtn1.textContent = option1;
     voteBtn2.textContent = option2;
     
+    const title = document.querySelector('#vote-view h2');
     if (type === 'question') {
-        document.querySelector('#vote-view h2').textContent = 'Kies een vraag om te beantwoorden';
+        title.textContent = `${creatorName} stelt vragen. Kies er één!`;
     } else {
-        document.querySelector('#vote-view h2').textContent = 'KIES!';
+        title.textContent = `${creatorName} stelt een dilemma!`;
     }
     
     showView('vote');
@@ -185,6 +329,9 @@ function handleVoteChoice(choice) {
     } else {
         // Submit immediately for dilemma
         submitVote(choice, null);
+        // Show waiting state locally while waiting for others
+        showView('voterWaiting');
+        document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
     }
 }
 
@@ -192,8 +339,10 @@ submitAnswerBtn.addEventListener('click', () => {
     const answer = answerInput.value.trim();
     if (answer) {
         submitVote(selectedChoice, answer);
+        showView('voterWaiting');
+        document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
     } else {
-        alert('Vul een antwoord in!');
+        showAlert('Let op', 'Vul een antwoord in!');
     }
 });
 
@@ -206,36 +355,56 @@ function submitVote(choice, answer) {
 }
 
 // Results
-socket.on('vote-result', ({ choice, dilemma, answer }) => {
+socket.on('vote-result', ({ winningChoice, stats, dilemma, answers }) => {
     const r1 = document.getElementById('result-option1');
     const r2 = document.getElementById('result-option2');
     
     r1.textContent = dilemma.option1;
     r2.textContent = dilemma.option2;
     
-    // Reset classes
+    // Add stats badges
+    const total = (stats['1'] || 0) + (stats['2'] || 0);
+    const p1 = total ? Math.round((stats['1'] / total) * 100) : 0;
+    const p2 = total ? Math.round((stats['2'] / total) * 100) : 0;
+    
+    // Reset and animate
     r1.className = 'result-card';
     r2.className = 'result-card';
     void r1.offsetWidth;
 
-    r1.classList.add(choice === 1 ? 'selected' : 'not-selected');
-    r2.classList.add(choice === 2 ? 'selected' : 'not-selected');
+    // Highlight winner
+    if (winningChoice === 1) r1.classList.add('selected');
+    else r1.classList.add('not-selected');
     
-    let msg = choice === 1 ? `Gekozen: ${dilemma.option1}` : `Gekozen: ${dilemma.option2}`;
+    if (winningChoice === 2) r2.classList.add('selected');
+    else r2.classList.add('not-selected');
     
-    if (dilemma.type === 'question' && answer) {
-        msg = "Vraag Beantwoord!";
+    // Show stats if party mode (>2 players)
+    // Actually, always showing % is nice?
+    // Let's append % text
+    // r1.innerHTML += `<br><small>${p1}%</small>`;
+    // r2.innerHTML += `<br><small>${p2}%</small>`;
+    // Use textContent to be safe, maybe just append span
+    
+    let msg = winningChoice === 1 ? `De meerderheid koos: Optie 1` : `De meerderheid koos: Optie 2`;
+    
+    // Handle Answers
+    if (dilemma.type === 'question' && answers && answers.length > 0) {
+        msg = "Vragen beantwoord!";
         answerDisplay.style.display = 'block';
-        answerText.textContent = answer;
+        // Show random answer or all? 
+        // Let's show all separated by lines if few, or random.
+        // For 'beautiful' CSS, a list is better.
+        // User asked "make it beautiful".
+        // Let's just show the first one or join them.
+        answerText.innerHTML = answers.map(a => `&ldquo;${a}&rdquo;`).join('<br>');
     } else {
         answerDisplay.style.display = 'none';
     }
     
-    document.getElementById('result-message').textContent = msg;
-
+    resultMessage.textContent = msg;
     showView('result');
     
-    // Longer wait time for question mode
     const duration = (dilemma.type === 'question') ? 12000 : 6000;
     startProgressBar(duration);
 });
@@ -243,45 +412,43 @@ socket.on('vote-result', ({ choice, dilemma, answer }) => {
 function startProgressBar(duration) {
     timerProgress.style.transition = 'none';
     timerProgress.style.width = '100%';
-    
     void timerProgress.offsetWidth;
-    
     timerProgress.style.transition = `width ${duration}ms linear`;
     timerProgress.style.width = '0%';
 }
 
-socket.on('new-round', ({ turn, round }) => {
+socket.on('new-round', ({ turnId, round }) => {
     updateRound(round);
-    document.querySelector('#voter-waiting-view h2').textContent = 'De andere maakt een dilemma...';
-    handleTurn(turn);
+    handleTurn(turnId);
 });
 
-// Leaving
-document.querySelectorAll('#leave-btn, #leave-game-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        modal.classList.add('active');
-    });
-});
-
-document.getElementById('cancel-leave').addEventListener('click', () => {
-    modal.classList.remove('active');
-});
+// Leaving Logic
+leaveBtn.addEventListener('click', () => confirmModal.classList.add('active'));
+leaveGameBtn.addEventListener('click', () => confirmModal.classList.add('active'));
+document.getElementById('cancel-leave').addEventListener('click', () => confirmModal.classList.remove('active'));
 
 document.getElementById('confirm-leave').addEventListener('click', () => {
-    modal.classList.remove('active');
+    confirmModal.classList.remove('active');
     socket.emit('leave-room', currentRoom);
     resetGame();
 });
 
-socket.on('player-left', () => {
-    alert('De andere speler heeft het spel verlaten.');
-    resetGame();
+socket.on('player-left', ({ name, remaining }) => {
+    showAlert('Speler Vertrokken', `${name} heeft het spel verlaten.`);
+    updatePlayerList(remaining);
+});
+
+socket.on('game-ended', (reason) => {
+    showAlert('Spel Afgelopen', reason, () => {
+        resetGame();
+    });
 });
 
 function resetGame() {
     currentRoom = null;
     currentDilemma = null;
     currentMode = 'dilemma';
+    players = [];
     showScreen('landing');
     roomCodeInput.value = '';
 }
