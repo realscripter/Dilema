@@ -38,9 +38,14 @@
             <div class="settings-content">
                 <div class="setting-group">
                     <label>Aantal Spelers</label>
-                    <div class="toggle-options" id="size-options">
-                        <button class="toggle-btn active" data-value="2">Classic (2)</button>
-                        <button class="toggle-btn" data-value="5">Party (Max 5)</button>
+                    <div class="number-selector" id="size-options">
+                        <button class="num-btn active" data-value="2">2</button>
+                        <button class="num-btn" data-value="3">3</button>
+                        <button class="num-btn" data-value="4">4</button>
+                        <button class="num-btn" data-value="5">5</button>
+                        <button class="num-btn" data-value="6">6</button>
+                        <button class="num-btn" data-value="7">7</button>
+                        <button class="num-btn" data-value="8">8</button>
                     </div>
                 </div>
 
@@ -66,6 +71,7 @@
             <div class="content centered">
                 <div class="loader"></div>
                 <h2 id="waiting-text">Wachten op spelers...</h2>
+                <div id="player-count-indicator" class="count-badge">1 / 2</div>
                 <div id="player-list" class="player-list">
                     <!-- Players will be listed here -->
                 </div>
@@ -89,14 +95,25 @@
             <div id="creator-choice-view" class="view">
                 <h2>Jouw Beurt!</h2>
                 <p>Wat wil je maken?</p>
+                
+                <div id="creator-targets-display" class="target-list">
+                    <!-- Will show "Voor: Alex, Tom..." -->
+                </div>
+
                 <div class="choice-buttons">
                     <button id="choice-dilemma-btn" class="btn choice-card">
                         <span class="icon">⚡</span>
-                        <span>DILEMMA</span>
+                        <div class="text">
+                            <span>DILEMMA</span>
+                            <small>Kies tussen 2 opties</small>
+                        </div>
                     </button>
                     <button id="choice-question-btn" class="btn choice-card secondary">
                         <span class="icon">❓</span>
-                        <span>OPEN VRAAG</span>
+                        <div class="text">
+                            <span>OPEN VRAAG</span>
+                            <small>Typ zelf een antwoord</small>
+                        </div>
                     </button>
                 </div>
             </div>
@@ -135,7 +152,12 @@
 
             <!-- Voter View: Answer Question (Only for Question Mode) -->
             <div id="answer-view" class="view">
-                <h2>Antwoord geven</h2>
+                <!-- Use a separate div for this local header to avoid conflicts -->
+                <div class="back-header">
+                    <button id="back-vote-btn" class="btn small icon-btn">←</button>
+                    <h2>Antwoord geven</h2>
+                </div>
+                
                 <div class="selected-question-display">
                     <p id="selected-question-text"></p>
                 </div>

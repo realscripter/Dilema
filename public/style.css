@@ -88,6 +88,8 @@ h2 {
     box-shadow: none;
     padding: 0;
     margin-bottom: 1rem;
+    justify-content: space-between;
+    width: 100%;
 }
 
 .round-badge {
@@ -127,20 +129,57 @@ h2 {
 
 .setting-group label {
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     font-weight: 600;
     color: #a4b0be;
     text-transform: uppercase;
-    font-size: 0.9rem;
-    letter-spacing: 1px;
+    font-size: 0.85rem;
+    letter-spacing: 1.5px;
+    text-align: center;
+}
+
+.number-selector {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.num-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
+    border: 2px solid var(--secondary);
+    background: var(--card-bg);
+    color: #747d8c;
+    font-weight: 700;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.num-btn:hover {
+    border-color: var(--primary);
+    background: rgba(255, 71, 87, 0.1);
+}
+
+.num-btn.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
 }
 
 .toggle-options {
     display: flex;
     background: var(--card-bg);
-    padding: 5px;
-    border-radius: 14px;
-    gap: 5px;
+    padding: 6px;
+    border-radius: 16px;
+    gap: 8px;
 }
 
 .toggle-options.vertical {
@@ -149,20 +188,29 @@ h2 {
 
 .toggle-btn {
     flex: 1;
-    padding: 12px;
+    padding: 16px;
     border: none;
     background: transparent;
     color: #747d8c;
-    border-radius: 10px;
+    border-radius: 12px;
     font-weight: 600;
     cursor: pointer;
     transition: 0.3s;
+    text-align: left;
+    padding-left: 20px;
+    position: relative;
 }
 
 .toggle-btn.active {
     background: var(--secondary);
     color: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.toggle-btn.active::after {
+    content: '✓';
+    position: absolute;
+    right: 20px;
+    color: var(--success);
 }
 
 /* Controls */
@@ -186,6 +234,7 @@ input:focus, textarea:focus {
     outline: none;
     border-color: var(--primary);
     background: #363d48;
+    box-shadow: 0 0 0 4px rgba(255, 71, 87, 0.1);
 }
 
 textarea {
@@ -232,13 +281,16 @@ textarea {
 }
 
 .icon-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     border-radius: 50%;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     background: var(--card-bg);
     color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .danger {
@@ -249,6 +301,7 @@ textarea {
 /* Landing */
 #landing-screen {
     justify-content: center;
+    text-align: center;
 }
 
 .name-container {
@@ -265,6 +318,8 @@ textarea {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    align-items: center;
+    width: 100%;
 }
 
 .divider {
@@ -279,6 +334,7 @@ textarea {
 .join-container {
     display: flex;
     gap: 10px;
+    width: 100%;
 }
 
 #room-code-input {
@@ -307,6 +363,16 @@ textarea {
     padding-bottom: 50px;
 }
 
+.count-badge {
+    background: var(--secondary);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #a4b0be;
+    font-size: 0.9rem;
+}
+
 .loader {
     width: 60px;
     height: 60px;
@@ -315,6 +381,8 @@ textarea {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 2rem;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 @keyframes spin {
@@ -336,6 +404,9 @@ textarea {
     border-radius: 10px;
     font-weight: 600;
     animation: fadeIn 0.3s;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
 }
 
 /* Game Screens */
@@ -369,6 +440,25 @@ textarea {
     border: 2px solid transparent;
 }
 
+.choice-card .text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.choice-card .text span {
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.choice-card .text small {
+    font-size: 0.8rem;
+    font-weight: 400;
+    color: #a4b0be;
+    text-transform: none;
+}
+
 .choice-card .icon {
     font-size: 2rem;
     background: rgba(255,255,255,0.1);
@@ -378,10 +468,15 @@ textarea {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .choice-card:hover {
     border-color: var(--primary);
+}
+
+.choice-card:hover .text small {
+    color: var(--text);
 }
 
 .input-header {
@@ -448,6 +543,19 @@ textarea {
 }
 
 /* Answer View */
+.back-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.back-header h2 {
+    margin-bottom: 0;
+    text-align: left;
+    flex: 1;
+}
+
 .selected-question-display {
     background: var(--card-bg);
     padding: 20px;
@@ -460,6 +568,23 @@ textarea {
 
 #answer-input {
     min-height: 150px;
+}
+
+/* Target List (Creator View) */
+.target-list {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.target-badge {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    color: #a4b0be;
 }
 
 /* Result */
@@ -596,4 +721,5 @@ textarea {
     .option-btn { min-height: 100px; }
     .loader { width: 40px; height: 40px; margin-bottom: 1rem; }
     .choice-card { height: 80px; }
+    .settings-content { gap: 15px; }
 }

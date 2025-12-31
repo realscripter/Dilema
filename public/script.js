@@ -38,10 +38,12 @@ const submitDilemmaBtn = document.getElementById('submit-dilemma-btn');
 const voteBtn1 = document.getElementById('vote-option1');
 const voteBtn2 = document.getElementById('vote-option2');
 const submitAnswerBtn = document.getElementById('submit-answer-btn');
+const backVoteBtn = document.getElementById('back-vote-btn');
 
 // Display Elements
 const roomCodeDisplay = document.getElementById('room-code-display');
 const playerList = document.getElementById('player-list');
+const playerCountIndicator = document.getElementById('player-count-indicator');
 const opponentsDisplay = document.getElementById('opponents-display');
 const roundDisplay = document.getElementById('round-display');
 const timerProgress = document.getElementById('timer-progress');
@@ -50,6 +52,8 @@ const answerDisplay = document.getElementById('answer-display');
 const answerText = document.getElementById('answer-text');
 const creatorNameDisplay = document.getElementById('creator-name-display');
 const resultMessage = document.getElementById('result-message');
+const waitingText = document.getElementById('waiting-text');
+const creatorTargetsDisplay = document.getElementById('creator-targets-display');
 
 // Modals
 const confirmModal = document.getElementById('confirm-modal');
@@ -134,20 +138,39 @@ document.querySelectorAll('.toggle-btn').forEach(btn => {
         parent.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
         
-        if (parent.id === 'size-options') {
-            currentSettings.maxPlayers = parseInt(e.target.dataset.value);
-        } else if (parent.id === 'mode-options') {
+        if (parent.id === 'mode-options') {
             currentSettings.mode = e.target.dataset.value;
         }
     });
 });
 
+// Number Selector Logic
+document.querySelectorAll('.num-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const parent = e.target.parentElement;
+        parent.querySelectorAll('.num-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        const target = e.currentTarget; 
+        currentSettings.maxPlayers = parseInt(target.dataset.value);
+    });
+});
+
+
 createConfirmBtn.addEventListener('click', () => {
+    createConfirmBtn.disabled = true; // Disable button to prevent double clicks
+    createConfirmBtn.textContent = 'Bezig...';
+
     socket.emit('create-room', {
         playerName: myName,
         maxPlayers: currentSettings.maxPlayers,
         gameMode: currentSettings.mode
     });
+    
+    // Safety timeout in case of server error
+    setTimeout(() => {
+        createConfirmBtn.disabled = false;
+        createConfirmBtn.textContent = 'Start Party';
+    }, 5000);
 });
 
 // Join Flow
@@ -156,6 +179,9 @@ joinBtn.addEventListener('click', () => {
     
     const code = roomCodeInput.value.toUpperCase();
     if (code.length === 6) {
+        joinBtn.disabled = true;
+        joinBtn.textContent = '...';
+        
         socket.emit('join-room', { roomCode: code, playerName: myName });
     } else {
         showAlert('Fout', 'Code moet 6 letters zijn!');
@@ -164,7 +190,21 @@ joinBtn.addEventListener('click', () => {
 
 // Socket Events: Room Setup
 socket.on('room-created', ({ code, players: pList }) => {
+    createConfirmBtn.disabled = false;
+    createConfirmBtn.textContent = 'Start Party';
+    
     currentRoom = code;
+    updatePlayerList(pList);
+    roomCodeDisplay.textContent = code;
+    showScreen('waiting');
+});
+
+socket.on('join-success', ({ code, players: pList, settings }) => {
+    joinBtn.disabled = false;
+    joinBtn.textContent = 'Join';
+    
+    currentRoom = code;
+    currentSettings = settings; // Update local settings from server
     updatePlayerList(pList);
     roomCodeDisplay.textContent = code;
     showScreen('waiting');
@@ -180,9 +220,24 @@ function updatePlayerList(pList) {
     pList.forEach(p => {
         const div = document.createElement('div');
         div.className = 'player-item';
-        div.textContent = p.name + (p.id === myId ? ' (Jij)' : '');
+        
+        // Show who is "Creator" / Leader roughly
+        // The first player is usually the host, but turn changes.
+        const isMe = p.id === myId;
+        const nameText = p.name + (isMe ? ' (Jij)' : '');
+        
+        div.innerHTML = `<span>${nameText}</span>`;
         playerList.appendChild(div);
     });
+
+    if (pList.length > 0) {
+        // If we have settings (we should), show max
+        if (currentSettings.maxPlayers) {
+             playerCountIndicator.textContent = `${pList.length} / ${currentSettings.maxPlayers}`;
+        } else {
+             playerCountIndicator.textContent = `${pList.length} Spelers`;
+        }
+    }
 
     // Update opponents text for game screen
     const opponentNames = pList
@@ -194,6 +249,11 @@ function updatePlayerList(pList) {
 
 socket.on('error', (msg) => {
     showAlert('Fout', msg);
+    // Re-enable join button if it was disabled
+    joinBtn.disabled = false;
+    joinBtn.textContent = 'Join';
+    createConfirmBtn.disabled = false;
+    createConfirmBtn.textContent = 'Start Party';
 });
 
 // Game Start
@@ -227,6 +287,20 @@ function handleTurn(turnId) {
 
 // Creator Logic
 function setupCreatorView() {
+    // Update target display (who are we creating for?)
+    if (creatorTargetsDisplay) {
+        const targets = players
+            .filter(p => p.id !== myId)
+            .map(p => `<span class="target-badge">${p.name}</span>`)
+            .join('');
+        
+        if (targets) {
+            creatorTargetsDisplay.innerHTML = `Voor: ${targets}`;
+        } else {
+            creatorTargetsDisplay.innerHTML = `Wachten...`;
+        }
+    }
+
     // Check mode settings to decide what to show
     const mode = currentSettings.mode; // mixed, dilemma-only, question-only
     
@@ -335,6 +409,11 @@ function handleVoteChoice(choice) {
     }
 }
 
+// Back Button for Voter (Question Mode)
+backVoteBtn.addEventListener('click', () => {
+    showView('vote');
+});
+
 submitAnswerBtn.addEventListener('click', () => {
     const answer = answerInput.value.trim();
     if (answer) {
@@ -362,11 +441,6 @@ socket.on('vote-result', ({ winningChoice, stats, dilemma, answers }) => {
     r1.textContent = dilemma.option1;
     r2.textContent = dilemma.option2;
     
-    // Add stats badges
-    const total = (stats['1'] || 0) + (stats['2'] || 0);
-    const p1 = total ? Math.round((stats['1'] / total) * 100) : 0;
-    const p2 = total ? Math.round((stats['2'] / total) * 100) : 0;
-    
     // Reset and animate
     r1.className = 'result-card';
     r2.className = 'result-card';
@@ -379,24 +453,12 @@ socket.on('vote-result', ({ winningChoice, stats, dilemma, answers }) => {
     if (winningChoice === 2) r2.classList.add('selected');
     else r2.classList.add('not-selected');
     
-    // Show stats if party mode (>2 players)
-    // Actually, always showing % is nice?
-    // Let's append % text
-    // r1.innerHTML += `<br><small>${p1}%</small>`;
-    // r2.innerHTML += `<br><small>${p2}%</small>`;
-    // Use textContent to be safe, maybe just append span
-    
     let msg = winningChoice === 1 ? `De meerderheid koos: Optie 1` : `De meerderheid koos: Optie 2`;
     
     // Handle Answers
     if (dilemma.type === 'question' && answers && answers.length > 0) {
         msg = "Vragen beantwoord!";
         answerDisplay.style.display = 'block';
-        // Show random answer or all? 
-        // Let's show all separated by lines if few, or random.
-        // For 'beautiful' CSS, a list is better.
-        // User asked "make it beautiful".
-        // Let's just show the first one or join them.
         answerText.innerHTML = answers.map(a => `&ldquo;${a}&rdquo;`).join('<br>');
     } else {
         answerDisplay.style.display = 'none';
@@ -451,4 +513,9 @@ function resetGame() {
     players = [];
     showScreen('landing');
     roomCodeInput.value = '';
+    // Re-enable buttons just in case
+    joinBtn.disabled = false;
+    joinBtn.textContent = 'Join';
+    createConfirmBtn.disabled = false;
+    createConfirmBtn.textContent = 'Start Party';
 }
