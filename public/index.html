@@ -51,10 +51,20 @@
 
                 <div class="setting-group">
                     <label>Spelmodus</label>
-                    <div class="toggle-options vertical" id="mode-options">
-                        <button class="toggle-btn active" data-value="mixed">Standaard (Alles)</button>
-                        <button class="toggle-btn" data-value="dilemma-only">Alleen Dilemma's</button>
-                        <button class="toggle-btn" data-value="question-only">Alleen Vragen</button>
+                    <!-- Mode toggles will allow enabling specific modes -->
+                    <div class="toggle-options vertical" id="mode-settings-list">
+                        <div class="toggle-row">
+                            <span>Dilemma's</span>
+                            <div class="toggle-switch active" data-mode="dilemma"></div>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Open Vragen</span>
+                            <div class="toggle-switch active" data-mode="question"></div>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Foto Modus</span>
+                            <div class="toggle-switch" data-mode="photo"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -118,6 +128,13 @@
                             <small>Typ zelf een antwoord</small>
                         </div>
                     </button>
+                    <button id="choice-photo-btn" class="btn choice-card accent">
+                        <span class="icon">📷</span>
+                        <div class="text">
+                            <span>FOTO</span>
+                            <small>Kies 2 fotos</small>
+                        </div>
+                    </button>
                 </div>
             </div>
 
@@ -129,11 +146,37 @@
                 </div>
                 
                 <p id="instruction-text">Verzin een lastig dilemma.</p>
-                <div class="inputs">
+                
+                <!-- Text Inputs -->
+                <div id="text-inputs" class="inputs">
                     <textarea id="option1-input" placeholder="Optie 1..."></textarea>
                     <div class="vs">VS</div>
                     <textarea id="option2-input" placeholder="Optie 2..."></textarea>
                 </div>
+
+                <!-- Photo Inputs -->
+                <div id="photo-inputs" class="inputs photo-inputs" style="display: none;">
+                    <div class="photo-upload-box" id="photo-upload-1">
+                        <input type="file" accept="image/*" id="file-input-1" hidden>
+                        <div class="upload-placeholder">
+                            <span>+</span>
+                            <small>Foto 1</small>
+                        </div>
+                        <img id="preview-1" class="preview-img" hidden>
+                        <button class="remove-photo-btn" data-target="1" hidden>×</button>
+                    </div>
+                    <div class="vs">VS</div>
+                    <div class="photo-upload-box" id="photo-upload-2">
+                        <input type="file" accept="image/*" id="file-input-2" hidden>
+                        <div class="upload-placeholder">
+                            <span>+</span>
+                            <small>Foto 2</small>
+                        </div>
+                        <img id="preview-2" class="preview-img" hidden>
+                        <button class="remove-photo-btn" data-target="2" hidden>×</button>
+                    </div>
+                </div>
+
                 <button id="submit-dilemma-btn" class="btn primary">Verstuur</button>
             </div>
 
@@ -141,15 +184,28 @@
             <div id="voter-waiting-view" class="view">
                 <div class="loader"></div>
                 <h2><span id="creator-name-display">De andere</span> maakt iets...</h2>
+                <div id="voters-progress-container" class="voters-progress">
+                    <!-- Chips of who answered will go here -->
+                </div>
             </div>
 
             <!-- Voter View: Vote -->
             <div id="vote-view" class="view">
                 <h2>KIES!</h2>
-                <div class="options">
+                <div class="options" id="text-vote-options">
                     <button id="vote-option1" class="btn option-btn">Optie 1</button>
                     <div class="vs-small">VS</div>
                     <button id="vote-option2" class="btn option-btn">Optie 2</button>
+                </div>
+                
+                <div class="options photo-options" id="photo-vote-options" style="display: none;">
+                    <div class="photo-option" id="vote-photo-1">
+                        <img id="vote-img-1" src="">
+                    </div>
+                    <div class="vs-small">VS</div>
+                    <div class="photo-option" id="vote-photo-2">
+                        <img id="vote-img-2" src="">
+                    </div>
                 </div>
             </div>
 
@@ -170,16 +226,30 @@
             <!-- Result View -->
             <div id="result-view" class="view">
                 <h2>Resultaat</h2>
-                <div class="result-box">
+                
+                <!-- Text Results -->
+                <div class="result-box" id="text-results">
                     <div id="result-option1" class="result-card"></div>
                     <div id="result-option2" class="result-card"></div>
                 </div>
+
+                <!-- Photo Results -->
+                <div class="result-box photo-results" id="photo-results" style="display: none;">
+                    <div id="result-photo-1" class="result-card photo-card">
+                        <img id="res-img-1" src="">
+                        <div class="overlay-stats"></div>
+                    </div>
+                    <div id="result-photo-2" class="result-card photo-card">
+                        <img id="res-img-2" src="">
+                        <div class="overlay-stats"></div>
+                    </div>
+                </div>
+
                 <p id="result-message"></p>
                 
                 <!-- Answer Display for Question Mode -->
                 <div id="answer-display" class="answer-box" style="display: none;">
-                    <h4>Gegeven Antwoord:</h4>
-                    <p id="answer-text"></p>
+                    <!-- Content injected by JS -->
                 </div>
 
                 <div class="timer-container">

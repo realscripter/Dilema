@@ -21,11 +21,60 @@ function generateRoomCode() {
     return code;
 }
 
+// Global helper for finishing rounds
+function finishRound(roomCode) {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    let votesByOption = { 1: [], 2: [] };
+    let answers = []; 
+
+    Object.entries(room.votes).forEach(([playerId, vote]) => {
+        const player = room.players.find(p => p.id === playerId);
+        if (player) {
+            votesByOption[vote.choice].push(player.name);
+            if (vote.answer) {
+                // Include the CHOICE so we know context
+                answers.push({ 
+                    name: player.name, 
+                    text: vote.answer,
+                    choice: vote.choice 
+                });
+            }
+        }
+    });
+
+    const winningChoice = votesByOption[1].length >= votesByOption[2].length ? 1 : 2;
+
+    io.to(roomCode).emit('vote-result', { 
+        winningChoice,
+        votesByOption, 
+        dilemma: room.dilemma,
+        answers: answers
+    });
+
+    room.votes = {};
+    
+    const delay = (room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
+    
+    room.dilemma = null;
+    room.round++;
+    room.turnIndex = (room.turnIndex + 1) % room.players.length;
+
+    setTimeout(() => {
+        if (rooms[roomCode]) { 
+            io.to(roomCode).emit('new-round', { 
+                turnId: room.players[room.turnIndex].id,
+                round: room.round
+            });
+        }
+    }, delay);
+}
+
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('create-room', ({ playerName, maxPlayers, gameMode }) => {
-        // Validate inputs
+    socket.on('create-room', ({ playerName, maxPlayers, allowedModes }) => {
         if (!playerName || playerName.length > 12) return;
         
         const roomCode = generateRoomCode();
@@ -36,9 +85,9 @@ io.on('connection', (socket) => {
             }],
             settings: {
                 maxPlayers: maxPlayers || 2,
-                mode: gameMode || 'mixed'
+                allowedModes: allowedModes || ['dilemma', 'question', 'photo']
             },
-            started: false, // Flag to prevent joining mid-game
+            started: false,
             turnIndex: 0, 
             dilemma: null,
             round: 1,
@@ -67,7 +116,6 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // Check for duplicate names
         const nameExists = room.players.some(p => p.name.toLowerCase() === playerName.toLowerCase());
         if (nameExists) {
             socket.emit('error', 'Naam is al in gebruik in deze kamer!');
@@ -81,17 +129,14 @@ io.on('connection', (socket) => {
         
         socket.join(roomCode);
         
-        // Notify the joining player specifically
         socket.emit('join-success', { 
             code: roomCode, 
             players: room.players,
             settings: room.settings 
         });
 
-        // Notify everyone in room of new player list
         io.to(roomCode).emit('player-update', room.players);
 
-        // Auto-start only if max players reached
         if (room.players.length === parseInt(room.settings.maxPlayers)) {
             startGame(roomCode);
         }
@@ -99,7 +144,6 @@ io.on('connection', (socket) => {
 
     socket.on('start-game-request', (roomCode) => {
         const room = rooms[roomCode];
-        // Only the host (first player) can start
         if (room && room.players[0].id === socket.id) {
             if (room.players.length >= 2) {
                 startGame(roomCode);
@@ -139,10 +183,15 @@ io.on('connection', (socket) => {
     socket.on('vote', ({ roomCode, choice, answer }) => {
         const room = rooms[roomCode];
         if (room) {
-            // Track votes
             room.votes[socket.id] = { choice, answer };
+            
+            // Broadcast progress
+            const voters = Object.keys(room.votes).map(id => {
+                const p = room.players.find(pl => pl.id === id);
+                return p ? p.name : 'Unknown';
+            });
+            io.to(roomCode).emit('update-vote-status', voters);
 
-            // Check if everyone (except creator) has voted
             const votersCount = room.players.length - 1;
             const currentVotes = Object.keys(room.votes).length;
 
@@ -151,56 +200,6 @@ io.on('connection', (socket) => {
             }
         }
     });
-
-    function finishRound(roomCode) {
-        const room = rooms[roomCode];
-        if (!room) return;
-
-        let votesByOption = { 1: [], 2: [] };
-        let answers = []; 
-
-        Object.entries(room.votes).forEach(([playerId, vote]) => {
-            const player = room.players.find(p => p.id === playerId);
-            if (player) {
-                votesByOption[vote.choice].push(player.name);
-                if (vote.answer) {
-                    answers.push({ name: player.name, text: vote.answer });
-                }
-            }
-        });
-
-        const winningChoice = votesByOption[1].length >= votesByOption[2].length ? 1 : 2;
-
-        io.to(roomCode).emit('vote-result', { 
-            winningChoice,
-            votesByOption, // Array of names for each option
-            dilemma: room.dilemma,
-            answers: answers // Now includes names
-        });
-
-        // Reset for next round
-        room.votes = {};
-        
-        // Calculate delay for next round
-        // If question mode: 10s per answer + buffer
-        // If dilemma mode: 6s fixed
-        const delay = (room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
-        
-        room.dilemma = null;
-        room.round++;
-        
-        // Rotate turn
-        room.turnIndex = (room.turnIndex + 1) % room.players.length;
-
-        setTimeout(() => {
-            if (rooms[roomCode]) { 
-                io.to(roomCode).emit('new-round', { 
-                    turnId: room.players[room.turnIndex].id,
-                    round: room.round
-                });
-            }
-        }, delay);
-    }
 
     socket.on('leave-room', (roomCode) => {
         handleDisconnect(socket, roomCode);
@@ -225,7 +224,6 @@ function handleDisconnect(socket, roomCode) {
         const wasCreator = (playerIndex === room.turnIndex);
         const leavingPlayerName = room.players[playerIndex].name;
         
-        // Remove player's vote if they voted (optional, but cleaner)
         if (room.votes[socket.id]) {
             delete room.votes[socket.id];
         }
@@ -243,11 +241,9 @@ function handleDisconnect(socket, roomCode) {
              delete rooms[roomCode];
              io.in(roomCode).socketsLeave(roomCode);
         } else {
-             // Handle turn adjustment
              if (wasCreator) {
                  room.turnIndex = room.turnIndex % room.players.length;
                  if (room.started) {
-                    // Creator left -> New Round immediately
                     io.to(roomCode).emit('new-round', {
                         turnId: room.players[room.turnIndex].id,
                         round: room.round
@@ -257,7 +253,6 @@ function handleDisconnect(socket, roomCode) {
                  room.turnIndex--;
              }
              
-             // Check if we should finish the round (if waiting for votes)
              if (room.dilemma && !wasCreator) {
                  const votersCount = room.players.length - 1;
                  const currentVotes = Object.keys(room.votes).length;
