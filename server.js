@@ -27,7 +27,8 @@ function generateRoomCode() {
 // Global helper for finishing rounds
 function finishRound(roomCode) {
     const room = rooms[roomCode];
-    if (!room) return;
+    // CRITICAL: Check if dilemma exists to prevent race conditions (multiple votes finishing at once)
+    if (!room || !room.dilemma) return;
 
     let votesByOption = { 1: [], 2: [] };
     let answers = []; 
@@ -48,6 +49,7 @@ function finishRound(roomCode) {
 
     const winningChoice = votesByOption[1].length >= votesByOption[2].length ? 1 : 2;
 
+    // Send result to everyone
     io.to(roomCode).emit('vote-result', { 
         winningChoice,
         votesByOption, 
@@ -55,11 +57,11 @@ function finishRound(roomCode) {
         answers: answers
     });
 
+    // Reset round state
     room.votes = {};
+    const delay = (room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
     
-    const delay = (room.dilemma && room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
-    
-    // Clear dilemma immediately so new joins don't see old state
+    // Clear dilemma after sending result
     room.dilemma = null;
     room.round++;
     room.turnIndex = (room.turnIndex + 1) % room.players.length;
@@ -72,6 +74,23 @@ function finishRound(roomCode) {
             });
         }
     }, delay);
+}
+
+// Helper to broadcast current voting progress
+function broadcastVoteStatus(roomCode) {
+    const room = rooms[roomCode];
+    if (!room || !room.dilemma) return;
+
+    const creatorId = room.players[room.turnIndex].id;
+    const status = room.players.map(p => {
+        if (p.id === creatorId) return null; // Creator doesn't vote
+        return {
+            name: p.name,
+            voted: !!room.votes[p.id]
+        };
+    }).filter(Boolean);
+
+    io.to(roomCode).emit('update-vote-status', status);
 }
 
 io.on('connection', (socket) => {
@@ -171,9 +190,9 @@ io.on('connection', (socket) => {
 
     socket.on('submit-dilemma', ({ roomCode, option1, option2, type }) => {
         const room = rooms[roomCode];
-        // Validate turn
         if (room && room.players[room.turnIndex].id === socket.id) {
             room.dilemma = { option1, option2, type };
+            room.votes = {}; // Ensure votes are fresh
             
             socket.to(roomCode).emit('dilemma-received', { 
                 option1, option2, type, 
@@ -181,24 +200,20 @@ io.on('connection', (socket) => {
             });
             
             socket.emit('waiting-for-vote');
+            broadcastVoteStatus(roomCode); // Show initial status
         }
     });
 
     socket.on('vote', ({ roomCode, choice, answer }) => {
         const room = rooms[roomCode];
-        if (room) {
+        if (room && room.dilemma) {
             // Track votes
             room.votes[socket.id] = { choice, answer };
             
-            // Broadcast progress (names only)
-            const voters = Object.keys(room.votes).map(id => {
-                const p = room.players.find(pl => pl.id === id);
-                return p ? p.name : 'Unknown';
-            });
-            io.to(roomCode).emit('update-vote-status', voters);
+            // Broadcast progress to everyone
+            broadcastVoteStatus(roomCode);
 
             // Check completion
-            // Everyone minus creator
             const votersCount = Math.max(0, room.players.length - 1);
             const currentVotes = Object.keys(room.votes).length;
 
@@ -252,30 +267,28 @@ function handleDisconnect(socket, roomCode) {
              // Handle turn adjustment
              if (wasCreator) {
                  room.turnIndex = room.turnIndex % room.players.length;
+                 room.dilemma = null; // Clear stale dilemma
+                 room.votes = {}; // Clear stale votes
                  if (room.started) {
-                    // Creator left -> New Round immediately
                     io.to(roomCode).emit('new-round', {
                         turnId: room.players[room.turnIndex].id,
                         round: room.round
                     });
                  }
-             } else if (playerIndex < room.turnIndex) {
-                 room.turnIndex--;
-             }
-             
-             // Check if we should finish the round (if waiting for votes)
-             if (room.dilemma && !wasCreator) {
-                 const votersCount = Math.max(0, room.players.length - 1);
-                 const currentVotes = Object.keys(room.votes).length;
-                 if (currentVotes >= votersCount) {
-                     finishRound(roomCode);
-                 } else {
-                     // Update progress if someone left
-                     const voters = Object.keys(room.votes).map(id => {
-                        const p = room.players.find(pl => pl.id === id);
-                        return p ? p.name : 'Unknown';
-                    });
-                    io.to(roomCode).emit('update-vote-status', voters);
+             } else {
+                 if (playerIndex < room.turnIndex) {
+                     room.turnIndex--;
+                 }
+                 
+                 // If waiting for votes, check if leaving voter makes it complete
+                 if (room.dilemma) {
+                     const votersCount = Math.max(0, room.players.length - 1);
+                     const currentVotes = Object.keys(room.votes).length;
+                     if (currentVotes >= votersCount) {
+                         finishRound(roomCode);
+                     } else {
+                         broadcastVoteStatus(roomCode);
+                     }
                  }
              }
 

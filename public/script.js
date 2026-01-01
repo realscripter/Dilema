@@ -139,7 +139,6 @@ backSettingsBtn.addEventListener('click', () => {
 document.querySelectorAll('.toggle-switch').forEach(toggle => {
     toggle.addEventListener('click', (e) => {
         e.target.classList.toggle('active');
-        // Ensure at least one is active
         const active = document.querySelectorAll('.toggle-switch.active');
         if (active.length === 0) {
             e.target.classList.add('active');
@@ -160,7 +159,6 @@ document.querySelectorAll('.num-btn').forEach(btn => {
 
 
 createConfirmBtn.addEventListener('click', () => {
-    // Gather allowed modes
     const allowed = [];
     document.querySelectorAll('.toggle-switch.active').forEach(t => {
         allowed.push(t.dataset.mode);
@@ -304,21 +302,19 @@ function handleTurn(turnId) {
         const creator = players.find(p => p.id === turnId);
         creatorNameDisplay.textContent = creator ? creator.name : 'De ander';
         document.querySelector('#voter-waiting-view h2').innerHTML = `<span>${creatorNameDisplay.textContent}</span> maakt iets...`;
-        votersProgressContainer.innerHTML = ''; // Clear progress
+        votersProgressContainer.innerHTML = ''; 
         showView('voterWaiting');
     }
 }
 
 // Creator Logic
 function setupCreatorView() {
-    // Show available modes based on settings
     const allowed = currentSettings.allowedModes || ['dilemma', 'question'];
     
     choiceDilemmaBtn.style.display = allowed.includes('dilemma') ? 'flex' : 'none';
     choiceQuestionBtn.style.display = allowed.includes('question') ? 'flex' : 'none';
     choicePhotoBtn.style.display = allowed.includes('photo') ? 'flex' : 'none';
 
-    // Target display
     if (creatorTargetsDisplay) {
         const targets = players
             .filter(p => p.id !== myId)
@@ -328,7 +324,6 @@ function setupCreatorView() {
     }
 
     showView('creatorChoice');
-    // Hide back button initially in choice view
     document.getElementById('back-choice-btn').style.display = 'none';
 }
 
@@ -403,8 +398,6 @@ function compressImage(file, maxWidth, quality, callback) {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            
-            // Return base64
             callback(canvas.toDataURL('image/jpeg', quality));
         };
     };
@@ -424,7 +417,6 @@ document.querySelectorAll('.photo-upload-box').forEach(box => {
     document.getElementById(id).addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            // Compress image to max 800px width and 0.7 quality
             compressImage(file, 800, 0.7, (compressedDataUrl) => {
                 const num = id.split('-')[2];
                 photoData[num] = compressedDataUrl;
@@ -439,7 +431,7 @@ document.querySelectorAll('.photo-upload-box').forEach(box => {
 
 document.querySelectorAll('.remove-photo-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-        e.stopPropagation(); // prevent triggering upload
+        e.stopPropagation(); 
         const num = btn.dataset.target;
         photoData[num] = null;
         document.getElementById(`preview-${num}`).hidden = true;
@@ -481,24 +473,25 @@ socket.on('waiting-for-vote', () => {
     votersProgressContainer.innerHTML = '';
 });
 
-socket.on('update-vote-status', (voters) => {
-    votersProgressContainer.innerHTML = '';
-    voters.forEach(name => {
-        const chip = document.createElement('span');
-        chip.className = 'voter-chip voted';
-        chip.textContent = `${name} ✓`;
-        votersProgressContainer.appendChild(chip);
-    });
+// Broadcast status update
+socket.on('update-vote-status', (statusList) => {
+    if (votersProgressContainer) {
+        votersProgressContainer.innerHTML = '';
+        statusList.forEach(s => {
+            const chip = document.createElement('span');
+            chip.className = 'voter-chip' + (s.voted ? ' voted' : '');
+            chip.textContent = s.name + (s.voted ? ' ✓' : '');
+            votersProgressContainer.appendChild(chip);
+        });
+    }
 });
 
 // Voter Logic
 socket.on('dilemma-received', ({ option1, option2, type, creatorName }) => {
     currentDilemma = { option1, option2, type };
     
-    // Toggle views based on type
     const textOptions = document.getElementById('text-vote-options');
     const photoOptions = document.getElementById('photo-vote-options');
-    
     const title = document.querySelector('#vote-view h2');
 
     if (type === 'photo') {
@@ -507,7 +500,6 @@ socket.on('dilemma-received', ({ option1, option2, type, creatorName }) => {
         document.getElementById('vote-img-1').src = option1;
         document.getElementById('vote-img-2').src = option2;
         
-        // Add click listeners to photos
         document.getElementById('vote-photo-1').onclick = () => handleVoteChoice(1);
         document.getElementById('vote-photo-2').onclick = () => handleVoteChoice(2);
         
@@ -542,7 +534,6 @@ function handleVoteChoice(choice) {
         submitVote(choice, null);
         showView('voterWaiting');
         document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
-        votersProgressContainer.innerHTML = '';
     }
 }
 
@@ -556,7 +547,6 @@ submitAnswerBtn.addEventListener('click', () => {
         submitVote(selectedChoice, answer);
         showView('voterWaiting');
         document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
-        votersProgressContainer.innerHTML = '';
     } else {
         showAlert('Let op', 'Vul een antwoord in!');
     }
@@ -586,18 +576,15 @@ socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers }) =>
         document.getElementById('res-img-1').src = dilemma.option1;
         document.getElementById('res-img-2').src = dilemma.option2;
         
-        // Reset classes
         document.getElementById('result-photo-1').className = 'result-card photo-card';
         document.getElementById('result-photo-2').className = 'result-card photo-card';
         
-        // Highlight winner
         if (winningChoice === 1) document.getElementById('result-photo-1').classList.add('selected');
         else document.getElementById('result-photo-1').classList.add('not-selected');
         
         if (winningChoice === 2) document.getElementById('result-photo-2').classList.add('selected');
         else document.getElementById('result-photo-2').classList.add('not-selected');
 
-        // Add overlay stats
         const ol1 = document.querySelector('#result-photo-1 .overlay-stats');
         const ol2 = document.querySelector('#result-photo-2 .overlay-stats');
         
@@ -608,11 +595,9 @@ socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers }) =>
         textRes.style.display = 'flex';
         photoRes.style.display = 'none';
         
-        // Set text
         r1.innerHTML = `<span>${dilemma.option1}</span>`;
         r2.innerHTML = `<span>${dilemma.option2}</span>`;
         
-        // Add voter names
         if (votesByOption[1] && votesByOption[1].length > 0) {
             const list1 = document.createElement('div');
             list1.className = 'voter-names';
@@ -642,16 +627,7 @@ socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers }) =>
     if (dilemma.type === 'question' && answers && answers.length > 0) {
         msg = "Vragen beantwoord!";
         answerDisplay.style.display = 'block';
-        
-        // Get the questions map to show context
-        // answers array has { name, text, choice } (choice needed from server ideally, currently logic assumes we know)
-        // Wait, 'answers' from server contains {name, text}. We need to know WHICH question they picked to show context.
-        // Let's rely on the text being self explanatory? 
-        // User asked: "maak het zo dat het wel de goeie vraag die de user heeft gekozen"
-        // Server needs to send choice in answers array.
-        
         playAnswerSlideshow(answers, dilemma);
-        
     } else {
         answerDisplay.style.display = 'none';
         const duration = 6000;
@@ -674,13 +650,6 @@ function playAnswerSlideshow(answers, dilemma) {
         }
         
         const a = answers[currentIndex];
-        // We need to match the answer to the question choice.
-        // Since we didn't update the server struct to pass choice in 'answers', 
-        // we might have a gap. 
-        // However, we can infer it if we pass it. 
-        // I'll update client to render nicely, but assuming server sends choice index in answers.
-        // If not, we just show generic context.
-        
         const questionText = (a.choice === 2) ? dilemma.option2 : dilemma.option1;
         
         let html = `
@@ -692,7 +661,6 @@ function playAnswerSlideshow(answers, dilemma) {
         `;
         
         answerText.innerHTML = html;
-        
         startProgressBar(10000);
         currentIndex++;
     };
