@@ -156,35 +156,42 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return;
 
-        let count1 = 0;
-        let count2 = 0;
+        let votesByOption = { 1: [], 2: [] };
         let answers = []; 
 
-        Object.values(room.votes).forEach(v => {
-            if (v.choice === 1) count1++;
-            if (v.choice === 2) count2++;
-            if (v.answer) answers.push(v.answer);
+        Object.entries(room.votes).forEach(([playerId, vote]) => {
+            const player = room.players.find(p => p.id === playerId);
+            if (player) {
+                votesByOption[vote.choice].push(player.name);
+                if (vote.answer) {
+                    answers.push({ name: player.name, text: vote.answer });
+                }
+            }
         });
 
-        const winningChoice = count1 >= count2 ? 1 : 2;
+        const winningChoice = votesByOption[1].length >= votesByOption[2].length ? 1 : 2;
 
         io.to(roomCode).emit('vote-result', { 
             winningChoice,
-            stats: { 1: count1, 2: count2 },
+            votesByOption, // Array of names for each option
             dilemma: room.dilemma,
-            answers: answers 
+            answers: answers // Now includes names
         });
 
         // Reset for next round
         room.votes = {};
+        
+        // Calculate delay for next round
+        // If question mode: 10s per answer + buffer
+        // If dilemma mode: 6s fixed
+        const delay = (room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
+        
         room.dilemma = null;
         room.round++;
         
         // Rotate turn
         room.turnIndex = (room.turnIndex + 1) % room.players.length;
 
-        const delay = (answers.length > 0) ? 12000 : 6000;
-        
         setTimeout(() => {
             if (rooms[roomCode]) { 
                 io.to(roomCode).emit('new-round', { 
@@ -218,6 +225,11 @@ function handleDisconnect(socket, roomCode) {
         const wasCreator = (playerIndex === room.turnIndex);
         const leavingPlayerName = room.players[playerIndex].name;
         
+        // Remove player's vote if they voted (optional, but cleaner)
+        if (room.votes[socket.id]) {
+            delete room.votes[socket.id];
+        }
+
         room.players.splice(playerIndex, 1);
         socket.leave(roomCode);
 
@@ -231,9 +243,11 @@ function handleDisconnect(socket, roomCode) {
              delete rooms[roomCode];
              io.in(roomCode).socketsLeave(roomCode);
         } else {
+             // Handle turn adjustment
              if (wasCreator) {
                  room.turnIndex = room.turnIndex % room.players.length;
                  if (room.started) {
+                    // Creator left -> New Round immediately
                     io.to(roomCode).emit('new-round', {
                         turnId: room.players[room.turnIndex].id,
                         round: room.round
@@ -243,6 +257,15 @@ function handleDisconnect(socket, roomCode) {
                  room.turnIndex--;
              }
              
+             // Check if we should finish the round (if waiting for votes)
+             if (room.dilemma && !wasCreator) {
+                 const votersCount = room.players.length - 1;
+                 const currentVotes = Object.keys(room.votes).length;
+                 if (currentVotes >= votersCount) {
+                     finishRound(roomCode);
+                 }
+             }
+
              io.to(roomCode).emit('player-update', room.players);
         }
     }

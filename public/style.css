@@ -623,11 +623,23 @@ textarea {
     border: 3px solid transparent;
     font-size: 1.1rem;
     display: flex;
+    flex-direction: column; /* Changed to column to stack names */
     align-items: center;
     justify-content: center;
     min-height: 80px;
     opacity: 0.4;
     transition: all 0.5s ease;
+    gap: 10px; /* Space between text and names */
+}
+
+.voter-names {
+    font-size: 0.75rem;
+    color: #a4b0be;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px 12px;
+    border-radius: 10px;
+    width: 100%;
+    word-wrap: break-word;
 }
 
 .result-card.selected {

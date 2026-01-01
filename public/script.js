@@ -72,6 +72,7 @@ let currentSettings = { maxPlayers: 2, mode: 'mixed' };
 let currentDilemma = null;
 let selectedChoice = null;
 let players = [];
+let slideshowInterval = null;
 
 // Socket Init
 socket.on('connect', () => {
@@ -282,6 +283,9 @@ function updateRound(r) {
 }
 
 function handleTurn(turnId) {
+    // Stop any existing slideshows
+    if (slideshowInterval) clearInterval(slideshowInterval);
+    
     // Reset inputs
     option1Input.value = '';
     option2Input.value = '';
@@ -292,6 +296,8 @@ function handleTurn(turnId) {
     } else {
         const creator = players.find(p => p.id === turnId);
         creatorNameDisplay.textContent = creator ? creator.name : 'De ander';
+        // Ensure explicit text when waiting for creator
+        document.querySelector('#voter-waiting-view h2').innerHTML = `<span>${creatorNameDisplay.textContent}</span> maakt iets...`;
         showView('voterWaiting');
     }
 }
@@ -377,7 +383,8 @@ submitDilemmaBtn.addEventListener('click', () => {
 
 socket.on('waiting-for-vote', () => {
     showView('voterWaiting');
-    document.querySelector('#voter-waiting-view h2').innerHTML = 'Wachten op keuze...';
+    // Ensure explicit text when waiting for votes
+    document.querySelector('#voter-waiting-view h2').innerHTML = 'Wachten op antwoorden...';
 });
 
 // Voter Logic
@@ -438,12 +445,27 @@ function submitVote(choice, answer) {
 }
 
 // Results
-socket.on('vote-result', ({ winningChoice, stats, dilemma, answers }) => {
+socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers }) => {
     const r1 = document.getElementById('result-option1');
     const r2 = document.getElementById('result-option2');
     
-    r1.textContent = dilemma.option1;
-    r2.textContent = dilemma.option2;
+    // Set text and clear previous voter lists
+    r1.innerHTML = `<span>${dilemma.option1}</span>`;
+    r2.innerHTML = `<span>${dilemma.option2}</span>`;
+    
+    // Add voter names
+    if (votesByOption[1] && votesByOption[1].length > 0) {
+        const list1 = document.createElement('div');
+        list1.className = 'voter-names';
+        list1.textContent = votesByOption[1].join(', ');
+        r1.appendChild(list1);
+    }
+    if (votesByOption[2] && votesByOption[2].length > 0) {
+        const list2 = document.createElement('div');
+        list2.className = 'voter-names';
+        list2.textContent = votesByOption[2].join(', ');
+        r2.appendChild(list2);
+    }
     
     r1.className = 'result-card';
     r2.className = 'result-card';
@@ -460,17 +482,48 @@ socket.on('vote-result', ({ winningChoice, stats, dilemma, answers }) => {
     if (dilemma.type === 'question' && answers && answers.length > 0) {
         msg = "Vragen beantwoord!";
         answerDisplay.style.display = 'block';
-        answerText.innerHTML = answers.map(a => `&ldquo;${a}&rdquo;`).join('<br>');
+        
+        // Slideshow logic
+        playAnswerSlideshow(answers);
+        
     } else {
         answerDisplay.style.display = 'none';
+        const duration = 6000;
+        startProgressBar(duration);
     }
     
     resultMessage.textContent = msg;
     showView('result');
-    
-    const duration = (dilemma.type === 'question') ? 12000 : 6000;
-    startProgressBar(duration);
 });
+
+function playAnswerSlideshow(answers) {
+    // Clear any existing interval
+    if (slideshowInterval) clearInterval(slideshowInterval);
+    
+    let currentIndex = 0;
+    
+    // Function to show current answer
+    const showAnswer = () => {
+        if (currentIndex >= answers.length) {
+            clearInterval(slideshowInterval);
+            return;
+        }
+        
+        const a = answers[currentIndex];
+        answerText.innerHTML = `<strong>${a.name}:</strong><br><br>&ldquo;${a.text}&rdquo;`;
+        
+        // Reset progress bar for 10s
+        startProgressBar(10000);
+        
+        currentIndex++;
+    };
+    
+    // Show first immediately
+    showAnswer();
+    
+    // Schedule next
+    slideshowInterval = setInterval(showAnswer, 10000);
+}
 
 function startProgressBar(duration) {
     timerProgress.style.transition = 'none';
@@ -508,6 +561,7 @@ socket.on('game-ended', (reason) => {
 });
 
 function resetGame() {
+    if (slideshowInterval) clearInterval(slideshowInterval);
     currentRoom = null;
     currentDilemma = null;
     currentMode = 'dilemma';
