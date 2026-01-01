@@ -51,6 +51,7 @@ const roundDisplay = document.getElementById('round-display');
 const timerProgress = document.getElementById('timer-progress');
 const selectedQuestionText = document.getElementById('selected-question-text');
 const answerDisplay = document.getElementById('answer-display');
+const answerText = document.getElementById('answer-text');
 const creatorNameDisplay = document.getElementById('creator-name-display');
 const resultMessage = document.getElementById('result-message');
 const waitingText = document.getElementById('waiting-text');
@@ -381,6 +382,34 @@ function setCreatorMode(mode) {
     }
 }
 
+// Compress Image Logic
+function compressImage(file, maxWidth, quality, callback) {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Return base64
+            callback(canvas.toDataURL('image/jpeg', quality));
+        };
+    };
+}
+
 // Photo Handling
 document.querySelectorAll('.photo-upload-box').forEach(box => {
     box.addEventListener('click', (e) => {
@@ -395,16 +424,15 @@ document.querySelectorAll('.photo-upload-box').forEach(box => {
     document.getElementById(id).addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            const num = id.split('-')[2];
-            reader.onload = (ev) => {
-                photoData[num] = ev.target.result;
+            // Compress image to max 800px width and 0.7 quality
+            compressImage(file, 800, 0.7, (compressedDataUrl) => {
+                const num = id.split('-')[2];
+                photoData[num] = compressedDataUrl;
                 const img = document.getElementById(`preview-${num}`);
-                img.src = ev.target.result;
+                img.src = compressedDataUrl;
                 img.hidden = false;
                 document.querySelector(`.remove-photo-btn[data-target="${num}"]`).hidden = false;
-            };
-            reader.readAsDataURL(file);
+            });
         }
     });
 });

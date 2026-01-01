@@ -1,7 +1,10 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+// Increase buffer size to 50MB to handle image uploads safely
+const io = require('socket.io')(http, {
+    maxHttpBufferSize: 50 * 1024 * 1024 
+});
 const path = require('path');
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -34,7 +37,6 @@ function finishRound(roomCode) {
         if (player) {
             votesByOption[vote.choice].push(player.name);
             if (vote.answer) {
-                // Include the CHOICE so we know context
                 answers.push({ 
                     name: player.name, 
                     text: vote.answer,
@@ -55,8 +57,9 @@ function finishRound(roomCode) {
 
     room.votes = {};
     
-    const delay = (room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
+    const delay = (room.dilemma && room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
     
+    // Clear dilemma immediately so new joins don't see old state
     room.dilemma = null;
     room.round++;
     room.turnIndex = (room.turnIndex + 1) % room.players.length;
@@ -168,6 +171,7 @@ io.on('connection', (socket) => {
 
     socket.on('submit-dilemma', ({ roomCode, option1, option2, type }) => {
         const room = rooms[roomCode];
+        // Validate turn
         if (room && room.players[room.turnIndex].id === socket.id) {
             room.dilemma = { option1, option2, type };
             
@@ -183,16 +187,19 @@ io.on('connection', (socket) => {
     socket.on('vote', ({ roomCode, choice, answer }) => {
         const room = rooms[roomCode];
         if (room) {
+            // Track votes
             room.votes[socket.id] = { choice, answer };
             
-            // Broadcast progress
+            // Broadcast progress (names only)
             const voters = Object.keys(room.votes).map(id => {
                 const p = room.players.find(pl => pl.id === id);
                 return p ? p.name : 'Unknown';
             });
             io.to(roomCode).emit('update-vote-status', voters);
 
-            const votersCount = room.players.length - 1;
+            // Check completion
+            // Everyone minus creator
+            const votersCount = Math.max(0, room.players.length - 1);
             const currentVotes = Object.keys(room.votes).length;
 
             if (currentVotes >= votersCount) {
@@ -224,6 +231,7 @@ function handleDisconnect(socket, roomCode) {
         const wasCreator = (playerIndex === room.turnIndex);
         const leavingPlayerName = room.players[playerIndex].name;
         
+        // Remove player's vote
         if (room.votes[socket.id]) {
             delete room.votes[socket.id];
         }
@@ -241,9 +249,11 @@ function handleDisconnect(socket, roomCode) {
              delete rooms[roomCode];
              io.in(roomCode).socketsLeave(roomCode);
         } else {
+             // Handle turn adjustment
              if (wasCreator) {
                  room.turnIndex = room.turnIndex % room.players.length;
                  if (room.started) {
+                    // Creator left -> New Round immediately
                     io.to(roomCode).emit('new-round', {
                         turnId: room.players[room.turnIndex].id,
                         round: room.round
@@ -253,11 +263,19 @@ function handleDisconnect(socket, roomCode) {
                  room.turnIndex--;
              }
              
+             // Check if we should finish the round (if waiting for votes)
              if (room.dilemma && !wasCreator) {
-                 const votersCount = room.players.length - 1;
+                 const votersCount = Math.max(0, room.players.length - 1);
                  const currentVotes = Object.keys(room.votes).length;
                  if (currentVotes >= votersCount) {
                      finishRound(roomCode);
+                 } else {
+                     // Update progress if someone left
+                     const voters = Object.keys(room.votes).map(id => {
+                        const p = room.players.find(pl => pl.id === id);
+                        return p ? p.name : 'Unknown';
+                    });
+                    io.to(roomCode).emit('update-vote-status', voters);
                  }
              }
 
