@@ -1,6 +1,6 @@
 const socket = io();
 
-// DOM Elements
+// DOM Elements - Global scope
 const screens = {
     landing: document.getElementById('landing-screen'),
     settings: document.getElementById('settings-screen'),
@@ -165,11 +165,20 @@ function validateName() {
 }
 
 // Create Flow
-createInitBtn.addEventListener('click', () => {
-    if (validateName()) {
-        showScreen('settings');
-    }
-});
+if (createInitBtn) {
+    createInitBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('Create party button clicked');
+        if (validateName()) {
+            console.log('Name validated, showing settings');
+            showScreen('settings');
+        } else {
+            console.log('Name validation failed');
+        }
+    });
+} else {
+    console.error('createInitBtn is null! Button not found in DOM.');
+}
 
 backSettingsBtn.addEventListener('click', () => {
     showScreen('landing');
