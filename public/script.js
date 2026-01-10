@@ -106,9 +106,7 @@ socket.on('connect', () => {
 // Page Visibility API - Track activity
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden && currentRoom) {
-        // Page became visible, send activity update
         socket.emit('player-activity', currentRoom);
-        // Clear any pending timeout
         if (pageVisibilityTimeout) {
             clearTimeout(pageVisibilityTimeout);
             pageVisibilityTimeout = null;
@@ -121,7 +119,7 @@ setInterval(() => {
     if (currentRoom && !document.hidden) {
         socket.emit('player-activity', currentRoom);
     }
-}, 30000); // Every 30 seconds
+}, 30000);
 
 // Navigation
 function showScreen(screenName) {
@@ -184,13 +182,12 @@ backSettingsBtn.addEventListener('click', () => {
     showScreen('landing');
 });
 
-// Settings Toggles (Allowed Modes)
+// Settings Toggles (Allowed Modes) - FIXED
 document.querySelectorAll('.toggle-switch').forEach(toggle => {
     toggle.addEventListener('click', (e) => {
-        e.preventDefault(); // Prevent any default behavior
-        e.stopPropagation(); // Stop event bubbling
+        e.preventDefault();
+        e.stopPropagation();
         
-        // Special handling for rare round toggle
         if (toggle.id === 'rare-round-toggle') {
             toggle.classList.toggle('active');
             const rareRoundSettings = document.getElementById('rare-round-settings');
@@ -198,12 +195,10 @@ document.querySelectorAll('.toggle-switch').forEach(toggle => {
                 rareRoundSettings.style.display = toggle.classList.contains('active') ? 'block' : 'none';
             }
         } else {
-            // For mode toggles, ensure at least one is active
-            // FIXED: Use 'toggle' instead of 'e.target' to always target the correct element
             toggle.classList.toggle('active');
             const active = document.querySelectorAll('.toggle-switch.active:not(#rare-round-toggle)');
             if (active.length === 0) {
-                toggle.classList.add('active'); // FIXED: Use 'toggle' instead of 'e.target'
+                toggle.classList.add('active');
             }
         }
     });
@@ -223,16 +218,13 @@ document.querySelectorAll('.num-btn').forEach(btn => {
 
 createConfirmBtn.addEventListener('click', () => {
     const allowed = [];
-    // Only include game mode toggles, not rare-round-toggle
     document.querySelectorAll('.toggle-switch.active').forEach(t => {
         const mode = t.dataset.mode;
-        // Filter out rare-round and other non-game-mode toggles
         if (mode && mode !== 'rare-round' && ['dilemma', 'question', 'photo', 'vote-person'].includes(mode)) {
             allowed.push(mode);
         }
     });
     
-    // Ensure at least one game mode is selected
     if (allowed.length === 0) {
         showAlert('Fout', 'Selecteer minimaal één spelmodus!');
         createConfirmBtn.disabled = false;
@@ -240,7 +232,6 @@ createConfirmBtn.addEventListener('click', () => {
         return;
     }
     
-    // Validate name is set
     if (!myName || myName.trim().length === 0) {
         if (!validateName()) {
             createConfirmBtn.disabled = false;
@@ -253,7 +244,7 @@ createConfirmBtn.addEventListener('click', () => {
     const timerMinutes = timerValue === 0 ? null : timerValue;
     
     const roundsValue = parseInt(document.getElementById('rounds-select')?.value) || 0;
-    const maxRounds = roundsValue === 0 ? null : roundsValue; // null = infinite, 1 or 2 = per player
+    const maxRounds = roundsValue === 0 ? null : roundsValue;
     
     const rareRoundToggle = document.getElementById('rare-round-toggle');
     const rareRoundEnabled = rareRoundToggle && rareRoundToggle.classList.contains('active');
@@ -463,9 +454,6 @@ function handleTurn(newTurnId) {
         slideshowInterval = null;
     }
     
-    // Timer will be managed by server now
-    
-    // Reset inputs
     option1Input.value = '';
     option2Input.value = '';
     answerInput.value = '';
@@ -480,33 +468,27 @@ function handleTurn(newTurnId) {
     const votePersonQuestionInput = document.getElementById('vote-person-question-input');
     if (votePersonQuestionInput) votePersonQuestionInput.value = '';
     
-    // Reset answer display
     if (answerDisplay) {
         answerDisplay.style.display = 'none';
         answerDisplay.innerHTML = '';
     }
     
-    // Hide timer display
     const timerContainer = document.getElementById('timer-display-container');
     if (timerContainer) timerContainer.style.display = 'none';
     
-    // Reset result timer
     resetTimer();
-    
-    // Reset vote person selection
     selectedVotePerson = null;
     
     if (turnId === myId) {
         setupCreatorView();
-        startInputMonitoring(); // Start monitoring input for auto-submit detection
-        // Request server to start shared timer (everyone sees it)
+        startInputMonitoring();
         if (currentSettings.createTimerMinutes && currentSettings.createTimerMinutes > 0) {
             setTimeout(() => {
                 socket.emit('start-create-timer', currentRoom);
             }, 100);
         }
     } else {
-        stopInputMonitoring(); // Stop monitoring if not creator
+        stopInputMonitoring();
         const creator = players.find(p => p.id === turnId);
         creatorNameDisplay.textContent = creator ? creator.name : 'De ander';
         document.querySelector('#voter-waiting-view h2').innerHTML = `<span>${creatorNameDisplay.textContent}</span> maakt iets...`;
@@ -515,7 +497,6 @@ function handleTurn(newTurnId) {
     }
 }
 
-// Server-side timer handling - everyone sees the timer
 socket.on('create-timer-update', ({ remainingSeconds, totalSeconds }) => {
     const timerContainer = document.getElementById('timer-display-container');
     const timerValue = document.getElementById('timer-value');
@@ -531,7 +512,6 @@ socket.on('create-timer-update', ({ remainingSeconds, totalSeconds }) => {
             const seconds = remainingSeconds % 60;
             timerValue.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
-            // Change color when time is running out
             if (remainingSeconds <= 30) {
                 timerValue.style.color = 'var(--danger)';
             } else if (remainingSeconds <= 60) {
@@ -542,7 +522,6 @@ socket.on('create-timer-update', ({ remainingSeconds, totalSeconds }) => {
         }
     }
     
-    // Also show timer in voter waiting view
     const voterWaitingView = document.querySelector('#voter-waiting-view');
     if (voterWaitingView && voterWaitingView.classList.contains('active')) {
         const waitingText = document.querySelector('#voter-waiting-view h2');
@@ -563,16 +542,12 @@ socket.on('create-timer-stopped', () => {
 });
 
 socket.on('timer-expired', ({ message }) => {
-    // Timer expired notification - shown to everyone
-    // Check if we're the creator by checking current view
     const creatorInputView = document.getElementById('creator-input-view');
     const isCreatorActive = creatorInputView && creatorInputView.classList.contains('active');
     
     if (isCreatorActive && turnId === myId) {
-        // Creator: try to auto-submit if enough is filled
         attemptAutoSubmit();
     } else {
-        // Others: show message
         const waitingView = document.querySelector('#voter-waiting-view h2');
         if (waitingView) {
             waitingView.textContent = message || 'Timer verlopen!';
@@ -581,7 +556,6 @@ socket.on('timer-expired', ({ message }) => {
 });
 
 socket.on('timer-expired-check', ({ message }) => {
-    // Creator's timer expired - check if can auto-submit
     attemptAutoSubmit();
 });
 
@@ -590,7 +564,6 @@ socket.on('round-skipped', ({ message }) => {
 });
 
 function attemptAutoSubmit() {
-    // Check what's filled and decide if we can auto-submit
     let canSubmit = false;
     let payload = {
         roomCode: currentRoom,
@@ -617,14 +590,10 @@ function attemptAutoSubmit() {
             payload.option2 = 'vote-person';
         }
     } else {
-        // For dilemmas/questions: need BOTH options with content
         const opt1 = option1Input.value.trim();
         const opt2 = option2Input.value.trim();
-        const timeSinceLastInput = Date.now() - lastInputTime;
         
-        // Check if both are filled, OR if user was just typing (within 3 seconds) and has both
         if (opt1 && opt2 && opt1.length > 0 && opt2.length > 0) {
-            // Both complete - definitely submit
             canSubmit = true;
             payload.option1 = opt1;
             payload.option2 = opt2;
@@ -632,16 +601,11 @@ function attemptAutoSubmit() {
     }
 
     if (canSubmit) {
-        // Auto submit - enough is filled
         payload.isAutoSubmit = true;
         socket.emit('submit-dilemma', payload);
-    } else {
-        // Not enough filled - round will be skipped by server
-        // Server will handle skip after delay
     }
 }
 
-// Creator Logic
 function setupCreatorView() {
     const allowed = currentSettings.allowedModes || ['dilemma', 'question'];
     
@@ -649,7 +613,6 @@ function setupCreatorView() {
     choiceQuestionBtn.style.display = allowed.includes('question') ? 'flex' : 'none';
     choicePhotoBtn.style.display = allowed.includes('photo') ? 'flex' : 'none';
     if (choiceVotePersonBtn) {
-        // Vote de persoon modus alleen beschikbaar bij 3+ spelers (kan niet op jezelf stemmen)
         const canUseVotePerson = allowed.includes('vote-person') && players.length >= 3;
         choiceVotePersonBtn.style.display = canUseVotePerson ? 'flex' : 'none';
     }
@@ -730,7 +693,6 @@ function setCreatorMode(mode) {
     }
 }
 
-// Crop Modal Functions
 function openCropModal(file) {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -741,7 +703,6 @@ function openCropModal(file) {
             const canvas = document.getElementById('crop-canvas');
             const ctx = canvas.getContext('2d');
             
-            // Set canvas size to fit image
             const maxSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 500);
             let canvasWidth = img.width;
             let canvasHeight = img.height;
@@ -757,7 +718,6 @@ function openCropModal(file) {
             
             ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
             
-            // Initialize crop box (square, centered, 60% of canvas size)
             cropBoxSize = Math.min(canvasWidth, canvasHeight) * 0.6;
             cropBoxX = (canvasWidth - cropBoxSize) / 2;
             cropBoxY = (canvasHeight - cropBoxSize) / 2;
@@ -782,7 +742,6 @@ function updateCropBox() {
     const canvasRect = canvas.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
     
-    // Calculate position relative to container
     const scaleX = canvasRect.width / canvas.width;
     const scaleY = canvasRect.height / canvas.height;
     
@@ -800,7 +759,6 @@ function cropImage() {
     const sourceCanvas = document.getElementById('crop-canvas');
     if (!sourceCanvas) return;
     
-    // Calculate crop coordinates relative to original image
     const scaleX = currentCropImage.width / sourceCanvas.width;
     const scaleY = currentCropImage.height / sourceCanvas.height;
     
@@ -840,7 +798,6 @@ function closeCropModal() {
     currentCropTarget = null;
 }
 
-// Crop Modal Event Listeners (set up after DOM loads)
 if (document.getElementById('crop-confirm-btn')) {
     document.getElementById('crop-confirm-btn').addEventListener('click', cropImage);
 }
@@ -848,17 +805,12 @@ if (document.getElementById('crop-cancel-btn')) {
     document.getElementById('crop-cancel-btn').addEventListener('click', closeCropModal);
 }
 
-// Crop Box Drag Functionality
 let isDragging = false;
 let dragHandle = null;
-let initialCropBoxX = 0;
-let initialCropBoxY = 0;
-let initialCropBoxSize = 0;
 
 function setupCropDrag() {
     const cropBoxElement = document.getElementById('crop-box');
     if (!cropBoxElement) return;
-    
     cropBoxElement.addEventListener('mousedown', handleCropMouseDown);
     cropBoxElement.addEventListener('touchstart', handleCropTouchStart, { passive: false });
 }
@@ -958,15 +910,13 @@ function updateCropPosition(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    
     const canvasX = (clientX - rect.left) * scaleX;
     const canvasY = (clientY - rect.top) * scaleY;
-    
+
     if (dragHandle === 'move') {
         cropBoxX = Math.max(0, Math.min(canvas.width - cropBoxSize, canvasX - cropStartX));
         cropBoxY = Math.max(0, Math.min(canvas.height - cropBoxSize, canvasY - cropStartY));
     } else if (dragHandle) {
-        // Resize from corner
         const centerX = initialCropBoxX + initialCropBoxSize / 2;
         const centerY = initialCropBoxY + initialCropBoxSize / 2;
         const deltaX = Math.abs(canvasX - centerX);
@@ -976,7 +926,7 @@ function updateCropPosition(clientX, clientY) {
         cropBoxX = Math.max(0, Math.min(canvas.width - cropBoxSize, centerX - cropBoxSize / 2));
         cropBoxY = Math.max(0, Math.min(canvas.height - cropBoxSize, centerY - cropBoxSize / 2));
     }
-    
+
     updateCropBox();
 }
 
@@ -994,14 +944,12 @@ function handleCropTouchEnd() {
     document.removeEventListener('touchend', handleCropTouchEnd);
 }
 
-// Initialize crop drag when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', setupCropDrag);
 } else {
     setupCropDrag();
 }
 
-// Compress Image Logic (for backwards compatibility)
 function compressImage(file, maxWidth, quality, callback) {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -1027,7 +975,6 @@ function compressImage(file, maxWidth, quality, callback) {
     };
 }
 
-// Photo Handling
 document.querySelectorAll('.photo-upload-box').forEach(box => {
     box.addEventListener('click', (e) => {
         if (e.target.tagName !== 'BUTTON') {
@@ -1050,7 +997,7 @@ document.querySelectorAll('.photo-upload-box').forEach(box => {
 
 document.querySelectorAll('.remove-photo-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-        e.stopPropagation(); 
+        e.stopPropagation();
         const num = btn.dataset.target;
         photoData[num] = null;
         document.getElementById(`preview-${num}`).hidden = true;
@@ -1058,7 +1005,6 @@ document.querySelectorAll('.remove-photo-btn').forEach(btn => {
         btn.hidden = true;
     });
 });
-
 submitDilemmaBtn.addEventListener('click', () => {
     let payload = {
         roomCode: currentRoom,
@@ -1074,7 +1020,6 @@ submitDilemmaBtn.addEventListener('click', () => {
         payload.option1 = photoData[1];
         payload.option2 = photoData[2];
         
-        // Add question if provided
         const photoQuestion = document.getElementById('photo-question-input')?.value.trim();
         if (photoQuestion) {
             payload.question = photoQuestion;
@@ -1086,8 +1031,8 @@ submitDilemmaBtn.addEventListener('click', () => {
             return;
         }
         payload.question = question;
-        payload.option1 = 'vote-person'; // Placeholder
-        payload.option2 = 'vote-person'; // Placeholder
+        payload.option1 = 'vote-person';
+        payload.option2 = 'vote-person';
     } else {
         const opt1 = option1Input.value.trim();
         const opt2 = option2Input.value.trim();
@@ -1099,7 +1044,6 @@ submitDilemmaBtn.addEventListener('click', () => {
         payload.option2 = opt2;
     }
 
-    // Timer will be stopped by server when submitted
     payload.isAutoSubmit = false;
     socket.emit('submit-dilemma', payload);
 });
@@ -1110,7 +1054,6 @@ socket.on('waiting-for-vote', () => {
     votersProgressContainer.innerHTML = '';
 });
 
-// Broadcast status update
 socket.on('update-vote-status', (statusList) => {
     if (votersProgressContainer) {
         votersProgressContainer.innerHTML = '';
@@ -1122,80 +1065,69 @@ socket.on('update-vote-status', (statusList) => {
         });
     }
 });
-
-// Voter Logic
 socket.on('dilemma-received', ({ option1, option2, type, creatorName, question }) => {
-    currentDilemma = { option1, option2, type, question };
-    
-    const textOptions = document.getElementById('text-vote-options');
-    const photoOptions = document.getElementById('photo-vote-options');
-    const votePersonView = document.getElementById('vote-person-view');
-    const title = document.querySelector('#vote-view h2');
+currentDilemma = { option1, option2, type, question };
+const textOptions = document.getElementById('text-vote-options');
+const photoOptions = document.getElementById('photo-vote-options');
+const votePersonView = document.getElementById('vote-person-view');
+const title = document.querySelector('#vote-view h2');
 
-    if (type === 'vote-person') {
-        // Show vote person view
-        textOptions.style.display = 'none';
-        photoOptions.style.display = 'none';
-        if (votePersonView) {
-            showView('votePerson');
-            setupVotePersonList(question, creatorName);
-        }
-        return;
-    } else if (type === 'photo') {
-        textOptions.style.display = 'none';
-        photoOptions.style.display = 'flex';
-        if (votePersonView) votePersonView.style.display = 'none';
-        document.getElementById('vote-img-1').src = option1;
-        document.getElementById('vote-img-2').src = option2;
-        
-        document.getElementById('vote-photo-1').onclick = () => handleVoteChoice(1);
-        document.getElementById('vote-photo-2').onclick = () => handleVoteChoice(2);
-        
-        // Show question if provided
-        if (question) {
-            title.textContent = `${creatorName}: ${question}`;
-        } else {
-            title.textContent = `${creatorName}: Welke foto wint?`;
-        }
-    } else {
-        textOptions.style.display = 'flex';
-        photoOptions.style.display = 'none';
-        if (votePersonView) votePersonView.style.display = 'none';
-        voteBtn1.textContent = option1;
-        voteBtn2.textContent = option2;
-        
-        if (type === 'question') {
-            title.textContent = `${creatorName} stelt vragen. Kies er één!`;
-        } else {
-            title.textContent = `${creatorName} stelt een dilemma!`;
-        }
+if (type === 'vote-person') {
+    textOptions.style.display = 'none';
+    photoOptions.style.display = 'none';
+    if (votePersonView) {
+        showView('votePerson');
+        setupVotePersonList(question, creatorName);
     }
+    return;
+} else if (type === 'photo') {
+    textOptions.style.display = 'none';
+    photoOptions.style.display = 'flex';
+    if (votePersonView) votePersonView.style.display = 'none';
+    document.getElementById('vote-img-1').src = option1;
+    document.getElementById('vote-img-2').src = option2;
     
-    showView('vote');
-});
+    document.getElementById('vote-photo-1').onclick = () => handleVoteChoice(1);
+    document.getElementById('vote-photo-2').onclick = () => handleVoteChoice(2);
+    
+    if (question) {
+        title.textContent = `${creatorName}: ${question}`;
+    } else {
+        title.textContent = `${creatorName}: Welke foto wint?`;
+    }
+} else {
+    textOptions.style.display = 'flex';
+    photoOptions.style.display = 'none';
+    if (votePersonView) votePersonView.style.display = 'none';
+    voteBtn1.textContent = option1;
+    voteBtn2.textContent = option2;
+    
+    if (type === 'question') {
+        title.textContent = `${creatorName} stelt vragen. Kies er één!`;
+    } else {
+        title.textContent = `${creatorName} stelt een dilemma!`;
+    }
+}
 
+showView('vote');
+});
 function setupVotePersonList(question, creatorName) {
     const votePersonList = document.getElementById('vote-person-list');
     const votePersonQuestionTitle = document.getElementById('vote-person-question-title');
-    
     if (!votePersonList) return;
-    
-    // Set question
+
     if (votePersonQuestionTitle) {
         votePersonQuestionTitle.textContent = question || 'Kies een persoon';
     }
-    
-    // Clear previous list
+
     votePersonList.innerHTML = '';
     selectedVotePerson = null;
-    
-    // Get creator ID
+
     const creator = players.find(p => p.name === creatorName);
     const creatorId = creator ? creator.id : null;
-    
-    // Get all players except the creator (creator can't vote on themselves)
+
     const playersToShow = players.filter(p => p.id !== creatorId);
-    
+
     playersToShow.forEach(player => {
         const item = document.createElement('div');
         item.className = 'vote-person-item';
@@ -1203,13 +1135,10 @@ function setupVotePersonList(question, creatorName) {
         item.dataset.playerId = player.id;
         
         item.addEventListener('click', () => {
-            // Deselect previous
             document.querySelectorAll('.vote-person-item').forEach(i => i.classList.remove('selected'));
-            // Select this one
             item.classList.add('selected');
             selectedVotePerson = player.id;
             
-            // Auto submit after selection
             setTimeout(() => {
                 submitVotePerson();
             }, 300);
@@ -1224,248 +1153,228 @@ function submitVotePerson() {
         showAlert('Let op', 'Kies eerst een persoon!');
         return;
     }
-    
     socket.emit('vote', {
         roomCode: currentRoom,
-        choice: 1, // Not used for vote-person
+        choice: 1,
         answer: null,
         selectedPersonId: selectedVotePerson
     });
-    
+
     showView('voterWaiting');
     document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
 }
-
 voteBtn1.addEventListener('click', () => handleVoteChoice(1));
 voteBtn2.addEventListener('click', () => handleVoteChoice(2));
-
 function handleVoteChoice(choice) {
-    selectedChoice = choice;
-    
-    if (currentDilemma.type === 'question') {
-        const question = choice === 1 ? currentDilemma.option1 : currentDilemma.option2;
-        selectedQuestionText.textContent = question;
-        showView('answer');
-    } else {
-        submitVote(choice, null);
-        showView('voterWaiting');
-        document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
-    }
+selectedChoice = choice;
+if (currentDilemma.type === 'question') {
+    const question = choice === 1 ? currentDilemma.option1 : currentDilemma.option2;
+    selectedQuestionText.textContent = question;
+    showView('answer');
+} else {
+    submitVote(choice, null);
+    showView('voterWaiting');
+    document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
 }
-
+}
 backVoteBtn.addEventListener('click', () => {
-    showView('vote');
+showView('vote');
 });
-
 submitAnswerBtn.addEventListener('click', () => {
-    const answer = answerInput.value.trim();
-    if (answer) {
-        submitVote(selectedChoice, answer);
-        showView('voterWaiting');
-        document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
-    } else {
-        showAlert('Let op', 'Vul een antwoord in!');
-    }
+const answer = answerInput.value.trim();
+if (answer) {
+submitVote(selectedChoice, answer);
+showView('voterWaiting');
+document.querySelector('#voter-waiting-view h2').textContent = 'Wachten op de rest...';
+} else {
+showAlert('Let op', 'Vul een antwoord in!');
+}
 });
-
 function submitVote(choice, answer) {
-    socket.emit('vote', {
-        roomCode: currentRoom,
-        choice: choice,
-        answer: answer
-    });
+socket.emit('vote', {
+roomCode: currentRoom,
+choice: choice,
+answer: answer
+});
+}
+socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, votePersonResults }) => {
+const r1 = document.getElementById('result-option1');
+const r2 = document.getElementById('result-option2');
+const textRes = document.getElementById('text-results');
+const photoRes = document.getElementById('photo-results');
+let isPhoto = (dilemma.type === 'photo');
+let isVotePerson = (dilemma.type === 'vote-person');
+
+const votePersonResultsDiv = document.getElementById('vote-person-results');
+if (votePersonResultsDiv) votePersonResultsDiv.style.display = 'none';
+
+if (isVotePerson) {
+    textRes.style.display = 'none';
+    photoRes.style.display = 'none';
+    const votePersonResultsList = document.getElementById('vote-person-results-list');
+    const votePersonResultsQuestion = document.getElementById('vote-person-results-question');
+    
+    if (votePersonResultsDiv && votePersonResultsList && votePersonResultsQuestion) {
+        votePersonResultsDiv.style.display = 'block';
+        votePersonResultsQuestion.textContent = dilemma.question || 'Resultaten';
+        
+        votePersonResultsList.innerHTML = '';
+        
+        const resultsArray = [];
+        players.forEach(player => {
+            const voters = votePersonResults && votePersonResults[player.id] ? votePersonResults[player.id] : [];
+            resultsArray.push({
+                player: player,
+                voters: voters,
+                voteCount: voters.length
+            });
+        });
+        
+        resultsArray.sort((a, b) => b.voteCount - a.voteCount);
+        
+        resultsArray.forEach(result => {
+            const item = document.createElement('div');
+            item.className = 'vote-person-result-item';
+            if (result.voteCount > 0) {
+                item.style.borderLeft = '4px solid var(--success)';
+            }
+            
+            const playerName = document.createElement('div');
+            playerName.className = 'player-name';
+            playerName.textContent = result.player.name;
+            
+            const votedBy = document.createElement('div');
+            votedBy.className = 'voted-by';
+            if (result.voters.length > 0) {
+                votedBy.innerHTML = `<strong style="color: var(--primary);">${result.voteCount}</strong> stem${result.voteCount !== 1 ? 'men' : ''}<br><small style="color: #a4b0be;">${result.voters.join(', ')}</small>`;
+            } else {
+                votedBy.innerHTML = '<small style="color: #747d8c;">Geen stemmen</small>';
+            }
+            
+            item.appendChild(playerName);
+            item.appendChild(votedBy);
+            votePersonResultsList.appendChild(item);
+        });
+        
+        resultMessage.textContent = 'Stemmen geteld!';
+        answerDisplay.style.display = 'none';
+        
+        const delay = 6000 + (players.length * 2000);
+        startProgressBar(delay);
+    }
+} else if (isPhoto) {
+    textRes.style.display = 'none';
+    photoRes.style.display = 'flex';
+    
+    document.getElementById('res-img-1').src = dilemma.option1;
+    document.getElementById('res-img-2').src = dilemma.option2;
+    
+    const photoCard1 = document.getElementById('result-photo-1');
+    const photoCard2 = document.getElementById('result-photo-2');
+    photoCard1.className = 'result-card photo-card';
+    photoCard2.className = 'result-card photo-card';
+    
+    if (winningChoice === 1) photoCard1.classList.add('selected');
+    else photoCard1.classList.add('not-selected');
+    
+    if (winningChoice === 2) photoCard2.classList.add('selected');
+    else photoCard2.classList.add('not-selected');
+
+    const ol1 = document.querySelector('#result-photo-1 .overlay-stats');
+    const ol2 = document.querySelector('#result-photo-2 .overlay-stats');
+    
+    if (ol1) {
+        ol1.innerHTML = votesByOption[1] && votesByOption[1].length > 0 
+            ? `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`
+            : '<strong>Geen stemmen</strong>';
+    }
+    if (ol2) {
+        ol2.innerHTML = votesByOption[2] && votesByOption[2].length > 0
+            ? `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`
+            : '<strong>Geen stemmen</strong>';
+    }
+    
+    if (dilemma.question) {
+        resultMessage.innerHTML = `<div class="photo-question-display" style="text-align: center; font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; color: var(--accent);">${dilemma.question}</div>`;
+    } else {
+        resultMessage.textContent = winningChoice === 1 ? `De meerderheid koos: Foto 1` : `De meerderheid koos: Foto 2`;
+    }
+    
+    answerDisplay.style.display = 'none';
+    const duration = 6000 + (players.length * 2000);
+    startProgressBar(duration);
+
+} else {
+    textRes.style.display = 'flex';
+    photoRes.style.display = 'none';
+    
+    r1.innerHTML = `<span>${dilemma.option1}</span>`;
+    r2.innerHTML = `<span>${dilemma.option2}</span>`;
+    
+    if (votesByOption[1] && votesByOption[1].length > 0) {
+        const list1 = document.createElement('div');
+        list1.className = 'voter-names';
+        list1.innerHTML = `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`;
+        r1.appendChild(list1);
+    } else {
+        const list1 = document.createElement('div');
+        list1.className = 'voter-names';
+        list1.style.color = '#747d8c';
+        list1.style.borderColor = 'rgba(116, 125, 140, 0.3)';
+        list1.style.background = 'rgba(0, 0, 0, 0.2)';
+        list1.textContent = 'Geen stemmen';
+        r1.appendChild(list1);
+    }
+    if (votesByOption[2] && votesByOption[2].length > 0) {
+        const list2 = document.createElement('div');
+        list2.className = 'voter-names';
+        list2.innerHTML = `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`;
+        r2.appendChild(list2);
+    } else {
+        const list2 = document.createElement('div');
+        list2.className = 'voter-names';
+        list2.style.color = '#747d8c';
+        list2.style.borderColor = 'rgba(116, 125, 140, 0.3)';
+        list2.style.background = 'rgba(0, 0, 0, 0.2)';
+        list2.textContent = 'Geen stemmen';
+        r2.appendChild(list2);
+    }
+    
+    r1.className = 'result-card';
+    r2.className = 'result-card';
+    void r1.offsetWidth;
+
+    if (winningChoice === 1) r1.classList.add('selected');
+    else r1.classList.add('not-selected');
+    
+    if (winningChoice === 2) r2.classList.add('selected');
+    else r2.classList.add('not-selected');
+    
+    let msg = winningChoice === 1 ? `De meerderheid koos: Optie 1` : `De meerderheid koos: Optie 2`;
+    
+    if (dilemma.type === 'question' && answers && answers.length > 0) {
+        msg = "Vragen beantwoord!";
+        answerDisplay.style.display = 'block';
+        playAnswerSlideshow(answers, dilemma);
+    } else {
+        answerDisplay.style.display = 'none';
+        const duration = dilemma.type === 'dilemma' ? (6000 + (players.length * 2000)) : 6000;
+        startProgressBar(duration);
+    }
+    
+    resultMessage.textContent = msg;
 }
 
-// Results
-socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, votePersonResults }) => {
-    const r1 = document.getElementById('result-option1');
-    const r2 = document.getElementById('result-option2');
-    const textRes = document.getElementById('text-results');
-    const photoRes = document.getElementById('photo-results');
-    
-    let isPhoto = (dilemma.type === 'photo');
-    let isVotePerson = (dilemma.type === 'vote-person');
-
-    // Hide vote person results initially
-    const votePersonResultsDiv = document.getElementById('vote-person-results');
-    if (votePersonResultsDiv) votePersonResultsDiv.style.display = 'none';
-
-    if (isVotePerson) {
-        // Show vote person results
-        textRes.style.display = 'none';
-        photoRes.style.display = 'none';
-        const votePersonResultsList = document.getElementById('vote-person-results-list');
-        const votePersonResultsQuestion = document.getElementById('vote-person-results-question');
-        
-        if (votePersonResultsDiv && votePersonResultsList && votePersonResultsQuestion) {
-            votePersonResultsDiv.style.display = 'block';
-            votePersonResultsQuestion.textContent = dilemma.question || 'Resultaten';
-            
-            votePersonResultsList.innerHTML = '';
-            
-            // Create results for each player
-            const resultsArray = [];
-            players.forEach(player => {
-                const voters = votePersonResults && votePersonResults[player.id] ? votePersonResults[player.id] : [];
-                resultsArray.push({
-                    player: player,
-                    voters: voters,
-                    voteCount: voters.length
-                });
-            });
-            
-            // Sort by vote count (descending)
-            resultsArray.sort((a, b) => b.voteCount - a.voteCount);
-            
-            resultsArray.forEach(result => {
-                const item = document.createElement('div');
-                item.className = 'vote-person-result-item';
-                if (result.voteCount > 0) {
-                    item.style.borderLeft = '4px solid var(--success)';
-                }
-                
-                const playerName = document.createElement('div');
-                playerName.className = 'player-name';
-                playerName.textContent = result.player.name;
-                
-                const votedBy = document.createElement('div');
-                votedBy.className = 'voted-by';
-                if (result.voters.length > 0) {
-                    votedBy.innerHTML = `<strong style="color: var(--primary);">${result.voteCount}</strong> stem${result.voteCount !== 1 ? 'men' : ''}<br><small style="color: #a4b0be;">${result.voters.join(', ')}</small>`;
-                } else {
-                    votedBy.innerHTML = '<small style="color: #747d8c;">Geen stemmen</small>';
-                }
-                
-                item.appendChild(playerName);
-                item.appendChild(votedBy);
-                votePersonResultsList.appendChild(item);
-            });
-            
-            resultMessage.textContent = 'Stemmen geteld!';
-            answerDisplay.style.display = 'none';
-            
-            // Calculate delay based on number of players
-            const delay = 6000 + (players.length * 2000);
-            startProgressBar(delay);
-        }
-    } else if (isPhoto) {
-        textRes.style.display = 'none';
-        photoRes.style.display = 'flex';
-        
-        document.getElementById('res-img-1').src = dilemma.option1;
-        document.getElementById('res-img-2').src = dilemma.option2;
-        
-        const photoCard1 = document.getElementById('result-photo-1');
-        const photoCard2 = document.getElementById('result-photo-2');
-        photoCard1.className = 'result-card photo-card';
-        photoCard2.className = 'result-card photo-card';
-        
-        if (winningChoice === 1) photoCard1.classList.add('selected');
-        else photoCard1.classList.add('not-selected');
-        
-        if (winningChoice === 2) photoCard2.classList.add('selected');
-        else photoCard2.classList.add('not-selected');
-
-        const ol1 = document.querySelector('#result-photo-1 .overlay-stats');
-        const ol2 = document.querySelector('#result-photo-2 .overlay-stats');
-        
-        if (ol1) {
-            ol1.innerHTML = votesByOption[1] && votesByOption[1].length > 0 
-                ? `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`
-                : '<strong>Geen stemmen</strong>';
-        }
-        if (ol2) {
-            ol2.innerHTML = votesByOption[2] && votesByOption[2].length > 0
-                ? `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`
-                : '<strong>Geen stemmen</strong>';
-        }
-        
-        // Show question if it exists
-        if (dilemma.question) {
-            resultMessage.innerHTML = `<div class="photo-question-display" style="text-align: center; font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; color: var(--accent);">${dilemma.question}</div>`;
-        } else {
-            resultMessage.textContent = winningChoice === 1 ? `De meerderheid koos: Foto 1` : `De meerderheid koos: Foto 2`;
-        }
-        
-        answerDisplay.style.display = 'none';
-        const duration = 6000 + (players.length * 2000);
-        startProgressBar(duration);
-
-    } else {
-        textRes.style.display = 'flex';
-        photoRes.style.display = 'none';
-        
-        r1.innerHTML = `<span>${dilemma.option1}</span>`;
-        r2.innerHTML = `<span>${dilemma.option2}</span>`;
-        
-        if (votesByOption[1] && votesByOption[1].length > 0) {
-            const list1 = document.createElement('div');
-            list1.className = 'voter-names';
-            list1.innerHTML = `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`;
-            r1.appendChild(list1);
-        } else {
-            const list1 = document.createElement('div');
-            list1.className = 'voter-names';
-            list1.style.color = '#747d8c';
-            list1.style.borderColor = 'rgba(116, 125, 140, 0.3)';
-            list1.style.background = 'rgba(0, 0, 0, 0.2)';
-            list1.textContent = 'Geen stemmen';
-            r1.appendChild(list1);
-        }
-        if (votesByOption[2] && votesByOption[2].length > 0) {
-            const list2 = document.createElement('div');
-            list2.className = 'voter-names';
-            list2.innerHTML = `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`;
-            r2.appendChild(list2);
-        } else {
-            const list2 = document.createElement('div');
-            list2.className = 'voter-names';
-            list2.style.color = '#747d8c';
-            list2.style.borderColor = 'rgba(116, 125, 140, 0.3)';
-            list2.style.background = 'rgba(0, 0, 0, 0.2)';
-            list2.textContent = 'Geen stemmen';
-            r2.appendChild(list2);
-        }
-        
-        r1.className = 'result-card';
-        r2.className = 'result-card';
-        void r1.offsetWidth;
-
-        if (winningChoice === 1) r1.classList.add('selected');
-        else r1.classList.add('not-selected');
-        
-        if (winningChoice === 2) r2.classList.add('selected');
-        else r2.classList.add('not-selected');
-        
-        let msg = winningChoice === 1 ? `De meerderheid koos: Optie 1` : `De meerderheid koos: Optie 2`;
-        
-        if (dilemma.type === 'question' && answers && answers.length > 0) {
-            msg = "Vragen beantwoord!";
-            answerDisplay.style.display = 'block';
-            playAnswerSlideshow(answers, dilemma);
-        } else {
-            answerDisplay.style.display = 'none';
-            // For dilemma mode, longer delay with more players
-            const duration = dilemma.type === 'dilemma' ? (6000 + (players.length * 2000)) : 6000;
-            startProgressBar(duration);
-        }
-        
-        resultMessage.textContent = msg;
-    }
-    
-    showView('result');
-    // Timer bar will be started by startProgressBar calls above
+showView('result');
 });
-
 function playAnswerSlideshow(answers, dilemma) {
     if (slideshowInterval) clearInterval(slideshowInterval);
-    
     if (!answers || answers.length === 0) {
         return;
     }
-    
+
     let currentIndex = 0;
-    
+
     const showAnswer = () => {
         if (currentIndex >= answers.length) {
             if (slideshowInterval) clearInterval(slideshowInterval);
@@ -1488,7 +1397,7 @@ function playAnswerSlideshow(answers, dilemma) {
         startProgressBar(10000);
         currentIndex++;
     };
-    
+
     showAnswer();
     slideshowInterval = setInterval(showAnswer, 10000);
 }
@@ -1497,34 +1406,26 @@ let timerInterval = null;
 let timerRemainingSeconds = 0;
 
 function startProgressBar(duration) {
-    // Clear any existing timer
     if (timerInterval) {
         clearInterval(timerInterval);
     }
-    
-    // Show timer container
     if (resultTimerContainer) {
         resultTimerContainer.style.display = 'block';
     }
-    
-    // Calculate seconds
+
     timerRemainingSeconds = Math.ceil(duration / 1000);
-    
-    // Update display immediately
+
     if (timerSeconds) {
         timerSeconds.textContent = timerRemainingSeconds;
     }
-    
-    // Reset progress bar
+
     timerProgress.style.transition = 'none';
     timerProgress.style.width = '100%';
-    void timerProgress.offsetWidth; // Force reflow
-    
-    // Start animation
+    void timerProgress.offsetWidth;
+
     timerProgress.style.transition = `width ${duration}ms linear`;
     timerProgress.style.width = '0%';
-    
-    // Update seconds counter
+
     timerInterval = setInterval(() => {
         timerRemainingSeconds--;
         if (timerSeconds) {
@@ -1541,7 +1442,6 @@ function startProgressBar(duration) {
     }, 1000);
 }
 
-// Reset timer when view changes
 function resetTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
@@ -1556,61 +1456,53 @@ function resetTimer() {
         resultTimerContainer.style.display = 'none';
     }
 }
-
 socket.on('new-round', ({ turnId, round, settings }) => {
-    updateRound(round);
-    if (settings) {
-        currentSettings = settings;
-    }
-    handleTurn(turnId);
+updateRound(round);
+if (settings) {
+currentSettings = settings;
+}
+handleTurn(turnId);
 });
-
-// Leaving Logic
 leaveBtn.addEventListener('click', () => confirmModal.classList.add('active'));
 leaveGameBtn.addEventListener('click', () => confirmModal.classList.add('active'));
 document.getElementById('cancel-leave').addEventListener('click', () => confirmModal.classList.remove('active'));
-
 document.getElementById('confirm-leave').addEventListener('click', () => {
-    confirmModal.classList.remove('active');
-    socket.emit('leave-room', currentRoom);
-    resetGame();
+confirmModal.classList.remove('active');
+socket.emit('leave-room', currentRoom);
+resetGame();
 });
-
 socket.on('player-left', ({ name, remaining }) => {
     showAlert('Speler Vertrokken', `${name} heeft het spel verlaten.`);
     updatePlayerList(remaining);
 });
-
 socket.on('game-ended', (reason) => {
-    showAlert('Spel Afgelopen', reason, () => {
-        resetGame();
-    });
+showAlert('Spel Afgelopen', reason, () => {
+resetGame();
 });
-
+});
 function resetGame() {
-    if (slideshowInterval) {
-        clearInterval(slideshowInterval);
-        slideshowInterval = null;
-    }
-    if (createTimerInterval) {
-        clearInterval(createTimerInterval);
-        createTimerInterval = null;
-    }
-    if (pageVisibilityTimeout) {
-        clearTimeout(pageVisibilityTimeout);
-        pageVisibilityTimeout = null;
-    }
-    stopInputMonitoring();
-    
-    currentRoom = null;
-    currentDilemma = null;
-    currentMode = 'dilemma';
-    players = [];
-    createTimerSeconds = null;
-    showScreen('landing');
-    roomCodeInput.value = '';
-    joinBtn.disabled = false;
-    joinBtn.textContent = 'Join';
-    createConfirmBtn.disabled = false;
-    createConfirmBtn.textContent = 'Start Lobby';
+if (slideshowInterval) {
+clearInterval(slideshowInterval);
+slideshowInterval = null;
+}
+if (createTimerInterval) {
+clearInterval(createTimerInterval);
+createTimerInterval = null;
+}
+if (pageVisibilityTimeout) {
+clearTimeout(pageVisibilityTimeout);
+pageVisibilityTimeout = null;
+}
+stopInputMonitoring();
+currentRoom = null;
+currentDilemma = null;
+currentMode = 'dilemma';
+players = [];
+createTimerSeconds = null;
+showScreen('landing');
+roomCodeInput.value = '';
+joinBtn.disabled = false;
+joinBtn.textContent = 'Join';
+createConfirmBtn.disabled = false;
+createConfirmBtn.textContent = 'Start Lobby';
 }
