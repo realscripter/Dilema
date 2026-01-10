@@ -60,18 +60,6 @@ function finishRound(roomCode) {
 
     const winningChoice = votesByOption[1].length >= votesByOption[2].length ? 1 : 2;
 
-    // Send result to everyone
-    io.to(roomCode).emit('vote-result', { 
-        winningChoice,
-        votesByOption, 
-        dilemma: room.dilemma,
-        answers: answers,
-        votePersonResults: room.dilemma.type === 'vote-person' ? votePersonResults : null
-    });
-
-    // Reset round state
-    room.votes = {};
-    
     // Calculate delay based on type and number of players
     let delay;
     if (room.dilemma.type === 'question') {
@@ -80,27 +68,71 @@ function finishRound(roomCode) {
     } else if (room.dilemma.type === 'dilemma') {
         // Dilemma mode: longer delay with more players (6 seconds base + 2 seconds per player)
         delay = 6000 + (room.players.length * 2000);
+    } else if (room.dilemma.type === 'vote-person') {
+        // Vote person mode: longer delay with more players
+        delay = 6000 + (room.players.length * 2000);
     } else {
-        // Other modes: default 6 seconds
-        delay = 6000;
+        // Photo mode and others: default 6 seconds + player count
+        delay = 6000 + (room.players.length * 2000);
     }
+    
+    // Send result to everyone with delay info
+    io.to(roomCode).emit('vote-result', { 
+        winningChoice,
+        votesByOption, 
+        dilemma: room.dilemma,
+        answers: answers,
+        votePersonResults: room.dilemma.type === 'vote-person' ? votePersonResults : null,
+        delay: delay // Send delay so client knows how long to wait
+    });
+
+    // Reset round state - delay will be sent with vote-result, calculated above
+    room.votes = {};
     
     // Clear dilemma after sending result
     room.dilemma = null;
+    
+    // Update round tracking
+    room.totalRoundsCompleted++;
+    const currentPlayerId = room.players[room.turnIndex].id;
+    if (!room.playerRoundsCompleted[currentPlayerId]) {
+        room.playerRoundsCompleted[currentPlayerId] = 0;
+    }
+    room.playerRoundsCompleted[currentPlayerId]++;
+    
+    // Check if NEXT round should be a rare round (before incrementing turnIndex)
     room.round++;
-    room.turnIndex = (room.turnIndex + 1) % room.players.length;
+    const nextPlayerIndex = (room.turnIndex + 1) % room.players.length;
+    
+    // Check if this should be a rare round
+    if (room.settings.rareRoundEnabled && 
+        room.players.length >= 3 && 
+        room.totalRoundsCompleted > 0 &&
+        (room.totalRoundsCompleted) % room.settings.rareRoundFrequency === 0) {
+        room.isRareRound = true;
+        // Rare round: current player creates a general question, others create dilemmas
+        // This will be handled in the new-round event
+    } else {
+        room.isRareRound = false;
+        room.rareRoundQuestion = null;
+        room.rareRoundCreatorId = null;
+    }
+    
+    room.turnIndex = nextPlayerIndex;
 
     setTimeout(() => {
         if (rooms[roomCode]) { 
+            const currentRoom = rooms[roomCode];
             io.to(roomCode).emit('new-round', { 
-                turnId: room.players[room.turnIndex].id,
-                round: room.round,
-                settings: rooms[roomCode].settings
+                turnId: currentRoom.players[currentRoom.turnIndex].id,
+                round: currentRoom.round,
+                settings: currentRoom.settings,
+                isRareRound: currentRoom.isRareRound || false,
+                rareRoundQuestion: currentRoom.rareRoundQuestion || null
             });
             
             // Start timer for new round if enabled
-            const newRoom = rooms[roomCode];
-            if (newRoom.settings.createTimerMinutes && newRoom.settings.createTimerMinutes > 0) {
+            if (currentRoom.settings.createTimerMinutes && currentRoom.settings.createTimerMinutes > 0) {
                 // Timer will start when creator view is shown (via client request)
             }
         }
@@ -113,12 +145,24 @@ function broadcastVoteStatus(roomCode) {
     if (!room || !room.dilemma) return;
 
     const creatorId = room.players[room.turnIndex].id;
+    
+    // In vote-person mode, everyone can vote (including creator)
+    // In other modes, creator doesn't vote
     const status = room.players.map(p => {
-        if (p.id === creatorId) return null; // Creator doesn't vote
-        return {
-            name: p.name,
-            voted: !!room.votes[p.id]
-        };
+        if (room.dilemma.type === 'vote-person') {
+            // Everyone can vote in vote-person mode
+            return {
+                name: p.name,
+                voted: !!room.votes[p.id]
+            };
+        } else {
+            // Creator doesn't vote in other modes
+            if (p.id === creatorId) return null;
+            return {
+                name: p.name,
+                voted: !!room.votes[p.id]
+            };
+        }
     }).filter(Boolean);
 
     io.to(roomCode).emit('update-vote-status', status);
@@ -362,12 +406,22 @@ io.on('connection', (socket) => {
             // Stop create timer
             stopCreateTimer(roomCode);
             
-            socket.to(roomCode).emit('dilemma-received', { 
-                option1, option2, type, question: question || null,
-                creatorName: room.players[room.turnIndex].name 
-            });
-            
-            socket.emit('waiting-for-vote');
+            // In vote-person mode, everyone (including creator) can vote
+            // In other modes, creator waits while others vote
+            if (type === 'vote-person') {
+                // Send to everyone including creator so creator can also vote
+                io.to(roomCode).emit('dilemma-received', { 
+                    option1, option2, type, question: question || null,
+                    creatorName: room.players[room.turnIndex].name 
+                });
+            } else {
+                // Other modes: creator waits, others vote
+                socket.to(roomCode).emit('dilemma-received', { 
+                    option1, option2, type, question: question || null,
+                    creatorName: room.players[room.turnIndex].name 
+                });
+                socket.emit('waiting-for-vote');
+            }
             broadcastVoteStatus(roomCode); // Show initial status
         }
     });
@@ -400,7 +454,14 @@ io.on('connection', (socket) => {
             broadcastVoteStatus(roomCode);
 
             // Check completion
-            const votersCount = Math.max(0, room.players.length - 1);
+            // In vote-person mode, everyone can vote (including creator)
+            // In other modes, creator doesn't vote
+            let votersCount;
+            if (room.dilemma.type === 'vote-person') {
+                votersCount = room.players.length; // Everyone votes
+            } else {
+                votersCount = Math.max(0, room.players.length - 1); // Creator doesn't vote
+            }
             const currentVotes = Object.keys(room.votes).length;
 
             if (currentVotes >= votersCount) {
@@ -474,7 +535,13 @@ function handleDisconnect(socket, roomCode) {
                  
                  // If waiting for votes, check if leaving voter makes it complete
                  if (room.dilemma) {
-                     const votersCount = Math.max(0, room.players.length - 1);
+                     // Check if vote-person mode (everyone votes) or other modes
+                     let votersCount;
+                     if (room.dilemma && room.dilemma.type === 'vote-person') {
+                         votersCount = room.players.length; // Everyone votes
+                     } else {
+                         votersCount = Math.max(0, room.players.length - 1); // Creator doesn't vote
+                     }
                      const currentVotes = Object.keys(room.votes).length;
                      if (currentVotes >= votersCount) {
                          finishRound(roomCode);

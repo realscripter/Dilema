@@ -243,8 +243,7 @@ createConfirmBtn.addEventListener('click', () => {
     const timerValue = parseInt(document.getElementById('timer-select').value) || 0;
     const timerMinutes = timerValue === 0 ? null : timerValue;
     
-    const roundsValue = parseInt(document.getElementById('rounds-select')?.value) || 0;
-    const maxRounds = roundsValue === 0 ? null : roundsValue;
+    // Aantal rondes removed - always infinite now
     
     const rareRoundToggle = document.getElementById('rare-round-toggle');
     const rareRoundEnabled = rareRoundToggle && rareRoundToggle.classList.contains('active');
@@ -260,7 +259,7 @@ createConfirmBtn.addEventListener('click', () => {
         maxPlayers: currentSettings.maxPlayers,
         allowedModes: allowed,
         createTimerMinutes: timerMinutes,
-        maxRounds: maxRounds,
+        maxRounds: null, // Always infinite
         rareRoundEnabled: rareRoundEnabled,
         rareRoundFrequency: rareRoundFrequency
     });
@@ -454,6 +453,9 @@ function handleTurn(newTurnId) {
         slideshowInterval = null;
     }
     
+    // Reset timer first
+    resetTimer();
+    
     option1Input.value = '';
     option2Input.value = '';
     answerInput.value = '';
@@ -476,8 +478,14 @@ function handleTurn(newTurnId) {
     const timerContainer = document.getElementById('timer-display-container');
     if (timerContainer) timerContainer.style.display = 'none';
     
-    resetTimer();
     selectedVotePerson = null;
+    
+    // Check for rare round
+    if (currentSettings.isRareRound && currentSettings.rareRoundQuestion) {
+        // Rare round: show question and let current player create dilemma based on it
+        // TODO: Implement rare round UI
+        console.log('Rare round! Question:', currentSettings.rareRoundQuestion);
+    }
     
     if (turnId === myId) {
         setupCreatorView();
@@ -1126,13 +1134,23 @@ function setupVotePersonList(question, creatorName) {
     const creator = players.find(p => p.name === creatorName);
     const creatorId = creator ? creator.id : null;
 
-    const playersToShow = players.filter(p => p.id !== creatorId);
+    // In vote-person mode, everyone can vote including creator, but creator cannot vote on themselves
+    const playersToShow = players.filter(p => p.id !== myId); // Can't vote on yourself
 
     playersToShow.forEach(player => {
         const item = document.createElement('div');
         item.className = 'vote-person-item';
         item.textContent = player.name;
         item.dataset.playerId = player.id;
+        
+        // Show indicator if this is the creator
+        if (player.id === creatorId) {
+            const badge = document.createElement('span');
+            badge.className = 'creator-badge';
+            badge.textContent = ' (Vraagmaker)';
+            badge.style.cssText = 'font-size: 0.8em; color: var(--accent); margin-left: 5px;';
+            item.appendChild(badge);
+        }
         
         item.addEventListener('click', () => {
             document.querySelectorAll('.vote-person-item').forEach(i => i.classList.remove('selected'));
@@ -1197,13 +1215,20 @@ choice: choice,
 answer: answer
 });
 }
-socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, votePersonResults }) => {
-const r1 = document.getElementById('result-option1');
-const r2 = document.getElementById('result-option2');
-const textRes = document.getElementById('text-results');
-const photoRes = document.getElementById('photo-results');
-let isPhoto = (dilemma.type === 'photo');
-let isVotePerson = (dilemma.type === 'vote-person');
+socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, votePersonResults, delay }) => {
+    const r1 = document.getElementById('result-option1');
+    const r2 = document.getElementById('result-option2');
+    const textRes = document.getElementById('text-results');
+    const photoRes = document.getElementById('photo-results');
+    let isPhoto = (dilemma.type === 'photo');
+    let isVotePerson = (dilemma.type === 'vote-person');
+    
+    // Calculate total votes for percentage
+    const totalVotes = (votesByOption[1]?.length || 0) + (votesByOption[2]?.length || 0);
+    const votes1 = votesByOption[1]?.length || 0;
+    const votes2 = votesByOption[2]?.length || 0;
+    const percentage1 = totalVotes > 0 ? Math.round((votes1 / totalVotes) * 100) : 0;
+    const percentage2 = totalVotes > 0 ? Math.round((votes2 / totalVotes) * 100) : 0;
 
 const votePersonResultsDiv = document.getElementById('vote-person-results');
 if (votePersonResultsDiv) votePersonResultsDiv.style.display = 'none';
@@ -1259,8 +1284,9 @@ if (isVotePerson) {
         resultMessage.textContent = 'Stemmen geteld!';
         answerDisplay.style.display = 'none';
         
-        const delay = 6000 + (players.length * 2000);
-        startProgressBar(delay);
+        // Use delay from server, or calculate if not provided
+        const calculatedDelay = delay || (6000 + (players.length * 2000));
+        startProgressBar(calculatedDelay);
     }
 } else if (isPhoto) {
     textRes.style.display = 'none';
@@ -1280,19 +1306,19 @@ if (isVotePerson) {
     if (winningChoice === 2) photoCard2.classList.add('selected');
     else photoCard2.classList.add('not-selected');
 
-    const ol1 = document.querySelector('#result-photo-1 .overlay-stats');
-    const ol2 = document.querySelector('#result-photo-2 .overlay-stats');
-    
-    if (ol1) {
-        ol1.innerHTML = votesByOption[1] && votesByOption[1].length > 0 
-            ? `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`
-            : '<strong>Geen stemmen</strong>';
-    }
-    if (ol2) {
-        ol2.innerHTML = votesByOption[2] && votesByOption[2].length > 0
-            ? `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`
-            : '<strong>Geen stemmen</strong>';
-    }
+        const ol1 = document.querySelector('#result-photo-1 .overlay-stats');
+        const ol2 = document.querySelector('#result-photo-2 .overlay-stats');
+        
+        if (ol1) {
+            ol1.innerHTML = votesByOption[1] && votesByOption[1].length > 0 
+                ? `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''} (${percentage1}%)</strong><br><span style="font-size: 0.85em;">${votesByOption[1].join(', ')}</span>`
+                : '<strong>0 stemmen (0%)</strong>';
+        }
+        if (ol2) {
+            ol2.innerHTML = votesByOption[2] && votesByOption[2].length > 0
+                ? `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''} (${percentage2}%)</strong><br><span style="font-size: 0.85em;">${votesByOption[2].join(', ')}</span>`
+                : '<strong>0 stemmen (0%)</strong>';
+        }
     
     if (dilemma.question) {
         resultMessage.innerHTML = `<div class="photo-question-display" style="text-align: center; font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; color: var(--accent);">${dilemma.question}</div>`;
@@ -1301,8 +1327,9 @@ if (isVotePerson) {
     }
     
     answerDisplay.style.display = 'none';
-    const duration = 6000 + (players.length * 2000);
-    startProgressBar(duration);
+    // Use delay from server, or calculate if not provided
+    const calculatedDelay = delay || (6000 + (players.length * 2000));
+    startProgressBar(calculatedDelay);
 
 } else {
     textRes.style.display = 'flex';
@@ -1311,10 +1338,11 @@ if (isVotePerson) {
     r1.innerHTML = `<span>${dilemma.option1}</span>`;
     r2.innerHTML = `<span>${dilemma.option2}</span>`;
     
+    // Add vote display with percentage for option 1
     if (votesByOption[1] && votesByOption[1].length > 0) {
         const list1 = document.createElement('div');
         list1.className = 'voter-names';
-        list1.innerHTML = `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`;
+        list1.innerHTML = `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''} (${percentage1}%)</strong><br><span style="font-size: 0.9em; opacity: 0.8;">${votesByOption[1].join(', ')}</span>`;
         r1.appendChild(list1);
     } else {
         const list1 = document.createElement('div');
@@ -1322,13 +1350,15 @@ if (isVotePerson) {
         list1.style.color = '#747d8c';
         list1.style.borderColor = 'rgba(116, 125, 140, 0.3)';
         list1.style.background = 'rgba(0, 0, 0, 0.2)';
-        list1.textContent = 'Geen stemmen';
+        list1.innerHTML = `<strong>0 stemmen (0%)</strong>`;
         r1.appendChild(list1);
     }
+    
+    // Add vote display with percentage for option 2
     if (votesByOption[2] && votesByOption[2].length > 0) {
         const list2 = document.createElement('div');
         list2.className = 'voter-names';
-        list2.innerHTML = `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`;
+        list2.innerHTML = `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''} (${percentage2}%)</strong><br><span style="font-size: 0.9em; opacity: 0.8;">${votesByOption[2].join(', ')}</span>`;
         r2.appendChild(list2);
     } else {
         const list2 = document.createElement('div');
@@ -1336,7 +1366,7 @@ if (isVotePerson) {
         list2.style.color = '#747d8c';
         list2.style.borderColor = 'rgba(116, 125, 140, 0.3)';
         list2.style.background = 'rgba(0, 0, 0, 0.2)';
-        list2.textContent = 'Geen stemmen';
+        list2.innerHTML = `<strong>0 stemmen (0%)</strong>`;
         r2.appendChild(list2);
     }
     
@@ -1355,24 +1385,28 @@ if (isVotePerson) {
     if (dilemma.type === 'question' && answers && answers.length > 0) {
         msg = "Vragen beantwoord!";
         answerDisplay.style.display = 'block';
-        playAnswerSlideshow(answers, dilemma);
+        playAnswerSlideshow(answers, dilemma, delay); // Pass delay to slideshow
     } else {
         answerDisplay.style.display = 'none';
-        const duration = dilemma.type === 'dilemma' ? (6000 + (players.length * 2000)) : 6000;
-        startProgressBar(duration);
+        // Use delay from server, or calculate if not provided
+        const calculatedDelay = delay || (dilemma.type === 'dilemma' ? (6000 + (players.length * 2000)) : (6000 + (players.length * 2000)));
+        startProgressBar(calculatedDelay);
     }
     
     resultMessage.textContent = msg;
 }
 
-showView('result');
+    showView('result');
 });
-function playAnswerSlideshow(answers, dilemma) {
+function playAnswerSlideshow(answers, dilemma, totalDelay) {
     if (slideshowInterval) clearInterval(slideshowInterval);
     if (!answers || answers.length === 0) {
         return;
     }
 
+    // Calculate time per slide (10 seconds per answer + 2 seconds buffer, divided by number of answers)
+    const slideDuration = totalDelay ? Math.floor(totalDelay / answers.length) : 10000;
+    
     let currentIndex = 0;
 
     const showAnswer = () => {
@@ -1394,38 +1428,49 @@ function playAnswerSlideshow(answers, dilemma) {
         `;
         
         answerDisplay.innerHTML = html;
-        startProgressBar(10000);
+        startProgressBar(slideDuration);
         currentIndex++;
     };
 
     showAnswer();
-    slideshowInterval = setInterval(showAnswer, 10000);
+    slideshowInterval = setInterval(showAnswer, slideDuration);
 }
 
 let timerInterval = null;
 let timerRemainingSeconds = 0;
 
 function startProgressBar(duration) {
+    // Clear any existing timer first
     if (timerInterval) {
         clearInterval(timerInterval);
+        timerInterval = null;
     }
+    
+    // Show timer container
     if (resultTimerContainer) {
         resultTimerContainer.style.display = 'block';
     }
-
+    
+    // Calculate seconds
     timerRemainingSeconds = Math.ceil(duration / 1000);
-
+    
+    // Update display immediately
     if (timerSeconds) {
         timerSeconds.textContent = timerRemainingSeconds;
     }
-
-    timerProgress.style.transition = 'none';
-    timerProgress.style.width = '100%';
-    void timerProgress.offsetWidth;
-
-    timerProgress.style.transition = `width ${duration}ms linear`;
-    timerProgress.style.width = '0%';
-
+    
+    // Reset progress bar animation
+    if (timerProgress) {
+        timerProgress.style.transition = 'none';
+        timerProgress.style.width = '100%';
+        void timerProgress.offsetWidth; // Force reflow
+        
+        // Start animation
+        timerProgress.style.transition = `width ${duration}ms linear`;
+        timerProgress.style.width = '0%';
+    }
+    
+    // Update countdown every second
     timerInterval = setInterval(() => {
         timerRemainingSeconds--;
         if (timerSeconds) {
@@ -1438,6 +1483,12 @@ function startProgressBar(duration) {
             if (timerSeconds) {
                 timerSeconds.textContent = '0';
             }
+            // Hide timer container after animation completes
+            setTimeout(() => {
+                if (resultTimerContainer) {
+                    resultTimerContainer.style.display = 'none';
+                }
+            }, 500);
         }
     }, 1000);
 }
@@ -1456,12 +1507,23 @@ function resetTimer() {
         resultTimerContainer.style.display = 'none';
     }
 }
-socket.on('new-round', ({ turnId, round, settings }) => {
-updateRound(round);
-if (settings) {
-currentSettings = settings;
-}
-handleTurn(turnId);
+socket.on('new-round', ({ turnId, round, settings, isRareRound, rareRoundQuestion }) => {
+    updateRound(round);
+    if (settings) {
+        currentSettings = settings;
+    }
+    
+    // Handle rare round
+    if (isRareRound) {
+        console.log('Rare round activated!');
+        currentSettings.isRareRound = true;
+        currentSettings.rareRoundQuestion = rareRoundQuestion;
+    } else {
+        currentSettings.isRareRound = false;
+        currentSettings.rareRoundQuestion = null;
+    }
+    
+    handleTurn(turnId);
 });
 leaveBtn.addEventListener('click', () => confirmModal.classList.add('active'));
 leaveGameBtn.addEventListener('click', () => confirmModal.classList.add('active'));
