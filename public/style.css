@@ -554,21 +554,26 @@ textarea {
 }
 
 .code-label-top {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     color: #a4b0be;
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 2px;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .code-value-hero {
-    font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: 3px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 4px;
     color: var(--primary);
-    font-family: 'Courier New', monospace;
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Courier New', monospace;
     line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .lobby-status {
@@ -1480,8 +1485,8 @@ textarea {
     }
     
     .code-value-hero {
-        font-size: 1.3rem;
-        letter-spacing: 2px;
+        font-size: 1.4rem;
+        letter-spacing: 3px;
     }
     
     .waiting-content {
@@ -1635,14 +1640,14 @@ textarea {
     }
     
     .code-value-hero {
-        font-size: 1.2rem;
-        letter-spacing: 2px;
+        font-size: 1.3rem;
+        letter-spacing: 3px;
     }
     
     .code-label-top {
-        font-size: 0.6rem;
-        letter-spacing: 1px;
-        margin-bottom: 3px;
+        font-size: 0.65rem;
+        letter-spacing: 1.5px;
+        margin-bottom: 4px;
     }
     .waiting-content {
         max-height: calc(100vh - 230px);
