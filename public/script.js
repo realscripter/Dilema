@@ -1461,13 +1461,20 @@ function startProgressBar(duration) {
     
     // Reset progress bar animation
     if (timerProgress) {
+        // Remove any existing transition
         timerProgress.style.transition = 'none';
         timerProgress.style.width = '100%';
-        void timerProgress.offsetWidth; // Force reflow
         
-        // Start animation
-        timerProgress.style.transition = `width ${duration}ms linear`;
-        timerProgress.style.width = '0%';
+        // Use requestAnimationFrame to ensure the reset is rendered before starting animation
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (timerProgress) {
+                    // Now set the transition and animate to 0%
+                    timerProgress.style.transition = `width ${duration}ms linear`;
+                    timerProgress.style.width = '0%';
+                }
+            });
+        });
     }
     
     // Update countdown every second
@@ -1482,6 +1489,9 @@ function startProgressBar(duration) {
             timerInterval = null;
             if (timerSeconds) {
                 timerSeconds.textContent = '0';
+            }
+            if (timerProgress) {
+                timerProgress.style.width = '0%';
             }
             // Hide timer container after animation completes
             setTimeout(() => {

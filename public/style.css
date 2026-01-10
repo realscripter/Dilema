@@ -1292,7 +1292,7 @@ textarea {
         var(--primary) 100%);
     background-size: 200% 100%;
     width: 0%;
-    transition: width linear;
+    transition: none;
     border-radius: 15px;
     box-shadow: 
         0 0 20px rgba(255, 71, 87, 0.6),
