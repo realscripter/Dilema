@@ -178,10 +178,20 @@ backSettingsBtn.addEventListener('click', () => {
 // Settings Toggles (Allowed Modes)
 document.querySelectorAll('.toggle-switch').forEach(toggle => {
     toggle.addEventListener('click', (e) => {
-        e.target.classList.toggle('active');
-        const active = document.querySelectorAll('.toggle-switch.active');
-        if (active.length === 0) {
-            e.target.classList.add('active');
+        // Special handling for rare round toggle
+        if (toggle.id === 'rare-round-toggle') {
+            toggle.classList.toggle('active');
+            const rareRoundSettings = document.getElementById('rare-round-settings');
+            if (rareRoundSettings) {
+                rareRoundSettings.style.display = toggle.classList.contains('active') ? 'block' : 'none';
+            }
+        } else {
+            // For mode toggles, ensure at least one is active
+            e.target.classList.toggle('active');
+            const active = document.querySelectorAll('.toggle-switch.active:not(#rare-round-toggle)');
+            if (active.length === 0) {
+                e.target.classList.add('active');
+            }
         }
     });
 });
@@ -206,6 +216,13 @@ createConfirmBtn.addEventListener('click', () => {
 
     const timerValue = parseInt(document.getElementById('timer-select').value) || 0;
     const timerMinutes = timerValue === 0 ? null : timerValue;
+    
+    const roundsValue = parseInt(document.getElementById('rounds-select')?.value) || 0;
+    const maxRounds = roundsValue === 0 ? null : roundsValue; // null = infinite, 1 or 2 = per player
+    
+    const rareRoundToggle = document.getElementById('rare-round-toggle');
+    const rareRoundEnabled = rareRoundToggle && rareRoundToggle.classList.contains('active');
+    const rareRoundFrequency = rareRoundEnabled ? parseInt(document.getElementById('rare-round-frequency')?.value) || 5 : null;
 
     createConfirmBtn.disabled = true; 
     createConfirmBtn.textContent = 'Bezig...';
@@ -214,7 +231,10 @@ createConfirmBtn.addEventListener('click', () => {
         playerName: myName,
         maxPlayers: currentSettings.maxPlayers,
         allowedModes: allowed,
-        createTimerMinutes: timerMinutes
+        createTimerMinutes: timerMinutes,
+        maxRounds: maxRounds,
+        rareRoundEnabled: rareRoundEnabled,
+        rareRoundFrequency: rareRoundFrequency
     });
     
     setTimeout(() => {
@@ -592,7 +612,9 @@ function setupCreatorView() {
     choiceQuestionBtn.style.display = allowed.includes('question') ? 'flex' : 'none';
     choicePhotoBtn.style.display = allowed.includes('photo') ? 'flex' : 'none';
     if (choiceVotePersonBtn) {
-        choiceVotePersonBtn.style.display = allowed.includes('vote-person') ? 'flex' : 'none';
+        // Vote de persoon modus alleen beschikbaar bij 3+ spelers (kan niet op jezelf stemmen)
+        const canUseVotePerson = allowed.includes('vote-person') && players.length >= 3;
+        choiceVotePersonBtn.style.display = canUseVotePerson ? 'flex' : 'none';
     }
 
     if (creatorTargetsDisplay) {
@@ -1310,8 +1332,16 @@ socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, vote
         const ol1 = document.querySelector('#result-photo-1 .overlay-stats');
         const ol2 = document.querySelector('#result-photo-2 .overlay-stats');
         
-        ol1.textContent = votesByOption[1].join(', ') || 'Geen stemmen';
-        ol2.textContent = votesByOption[2].join(', ') || 'Geen stemmen';
+        if (ol1) {
+            ol1.innerHTML = votesByOption[1] && votesByOption[1].length > 0 
+                ? `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`
+                : '<strong>Geen stemmen</strong>';
+        }
+        if (ol2) {
+            ol2.innerHTML = votesByOption[2] && votesByOption[2].length > 0
+                ? `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`
+                : '<strong>Geen stemmen</strong>';
+        }
         
         // Show question if it exists
         if (dilemma.question) {
@@ -1334,13 +1364,29 @@ socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, vote
         if (votesByOption[1] && votesByOption[1].length > 0) {
             const list1 = document.createElement('div');
             list1.className = 'voter-names';
-            list1.textContent = votesByOption[1].join(', ');
+            list1.innerHTML = `<strong>${votesByOption[1].length} stem${votesByOption[1].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[1].join(', ')}`;
+            r1.appendChild(list1);
+        } else {
+            const list1 = document.createElement('div');
+            list1.className = 'voter-names';
+            list1.style.color = '#747d8c';
+            list1.style.borderColor = 'rgba(116, 125, 140, 0.3)';
+            list1.style.background = 'rgba(0, 0, 0, 0.2)';
+            list1.textContent = 'Geen stemmen';
             r1.appendChild(list1);
         }
         if (votesByOption[2] && votesByOption[2].length > 0) {
             const list2 = document.createElement('div');
             list2.className = 'voter-names';
-            list2.textContent = votesByOption[2].join(', ');
+            list2.innerHTML = `<strong>${votesByOption[2].length} stem${votesByOption[2].length !== 1 ? 'men' : ''}:</strong> ${votesByOption[2].join(', ')}`;
+            r2.appendChild(list2);
+        } else {
+            const list2 = document.createElement('div');
+            list2.className = 'voter-names';
+            list2.style.color = '#747d8c';
+            list2.style.borderColor = 'rgba(116, 125, 140, 0.3)';
+            list2.style.background = 'rgba(0, 0, 0, 0.2)';
+            list2.textContent = 'Geen stemmen';
             r2.appendChild(list2);
         }
         

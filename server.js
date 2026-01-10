@@ -127,7 +127,7 @@ function broadcastVoteStatus(roomCode) {
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('create-room', ({ playerName, maxPlayers, allowedModes, createTimerMinutes }) => {
+    socket.on('create-room', ({ playerName, maxPlayers, allowedModes, createTimerMinutes, maxRounds, rareRoundEnabled, rareRoundFrequency }) => {
         if (!playerName || playerName.length > 12) return;
         
         const roomCode = generateRoomCode();
@@ -139,14 +139,22 @@ io.on('connection', (socket) => {
             settings: {
                 maxPlayers: maxPlayers || 2,
                 allowedModes: allowedModes || ['dilemma', 'question', 'photo'],
-                createTimerMinutes: createTimerMinutes || null // null = infinite
+                createTimerMinutes: createTimerMinutes || null, // null = infinite
+                maxRounds: maxRounds || null, // null = infinite, number = rounds per player
+                rareRoundEnabled: rareRoundEnabled || false,
+                rareRoundFrequency: rareRoundFrequency || 5 // Every X questions
             },
             started: false,
             turnIndex: 0, 
             dilemma: null,
             round: 1,
             votes: {},
-            playerLastActive: {} // Track when players were last active
+            playerLastActive: {}, // Track when players were last active
+            totalRoundsCompleted: 0, // Track total rounds for rare round calculation
+            playerRoundsCompleted: {}, // Track rounds per player { playerId: count }
+            isRareRound: false, // Flag for current round being a rare round
+            rareRoundQuestion: null, // Question for rare round
+            rareRoundCreatorId: null // Player who created the rare round question
         };
 
         rooms[roomCode].playerLastActive[socket.id] = Date.now();
