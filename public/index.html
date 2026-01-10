@@ -6,6 +6,7 @@
     <title>Dilemma Spel</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div id="app">
@@ -31,7 +32,7 @@
         <!-- Create Settings Screen -->
         <div id="settings-screen" class="screen">
             <div class="header">
-                <button id="back-settings-btn" class="btn small icon-btn">←</button>
+                <button id="back-settings-btn" class="btn small icon-btn"><i class="fas fa-arrow-left"></i></button>
                 <h2>Party Settings</h2>
             </div>
             
@@ -92,15 +93,17 @@
 
         <!-- Waiting Screen -->
         <div id="waiting-screen" class="screen">
-            <div class="header">
-                <div class="room-code-display-large">
-                    <div class="code-label">KAMER CODE</div>
-                    <div class="code-value" id="room-code-display">ABCDEF</div>
-                    <button class="copy-code-btn" id="copy-code-btn">📋 Kopieer</button>
-                </div>
-                <button id="leave-btn" class="btn small">Verlaten</button>
+            <div class="header waiting-header">
+                <button id="leave-btn" class="btn small icon-btn"><i class="fas fa-times"></i></button>
             </div>
-            <div class="content centered">
+            
+            <div class="room-code-hero">
+                <div class="code-label-top">KAMER CODE</div>
+                <div class="code-value-hero" id="room-code-display">ABCDEF</div>
+                <div class="code-hint">Deel deze code met je vrienden</div>
+            </div>
+            
+            <div class="content centered waiting-content">
                 <div class="lobby-status">
                     <div class="loader"></div>
                     <h2 id="waiting-text">Wachten op spelers...</h2>
@@ -128,7 +131,7 @@
                 <div class="opponents-info" id="opponents-display">
                     <!-- Names here -->
                 </div>
-                <button id="leave-game-btn" class="btn small icon-btn">✕</button>
+                <button id="leave-game-btn" class="btn small icon-btn"><i class="fas fa-times"></i></button>
             </div>
             
             <!-- Creator Choice View (Select Type) -->
@@ -142,28 +145,28 @@
 
                 <div class="choice-buttons">
                     <button id="choice-dilemma-btn" class="btn choice-card">
-                        <span class="icon">⚡</span>
+                        <span class="icon"><i class="fas fa-bolt"></i></span>
                         <div class="text">
                             <span>DILEMMA</span>
                             <small>Kies tussen 2 opties</small>
                         </div>
                     </button>
                     <button id="choice-question-btn" class="btn choice-card secondary">
-                        <span class="icon">❓</span>
+                        <span class="icon"><i class="fas fa-question-circle"></i></span>
                         <div class="text">
                             <span>OPEN VRAAG</span>
                             <small>Typ zelf een antwoord</small>
                         </div>
                     </button>
                     <button id="choice-photo-btn" class="btn choice-card accent">
-                        <span class="icon">📷</span>
+                        <span class="icon"><i class="fas fa-camera"></i></span>
                         <div class="text">
                             <span>FOTO</span>
                             <small>Kies 2 fotos</small>
                         </div>
                     </button>
                     <button id="choice-vote-person-btn" class="btn choice-card vote-person">
-                        <span class="icon">👤</span>
+                        <span class="icon"><i class="fas fa-user-check"></i></span>
                         <div class="text">
                             <span>VOTE DE PERSOON</span>
                             <small>Stel een vraag en stem op iemand</small>
@@ -175,7 +178,7 @@
             <!-- Creator Input View -->
             <div id="creator-input-view" class="view">
                 <div class="input-header">
-                     <button id="back-choice-btn" class="btn small icon-btn">←</button>
+                     <button id="back-choice-btn" class="btn small icon-btn"><i class="fas fa-arrow-left"></i></button>
                      <h2 id="input-title">Nieuw Dilemma</h2>
                 </div>
                 
@@ -194,21 +197,21 @@
                     <div class="photo-upload-box" id="photo-upload-1">
                         <input type="file" accept="image/*" id="file-input-1" hidden>
                         <div class="upload-placeholder">
-                            <span>+</span>
+                            <i class="fas fa-plus"></i>
                             <small>Foto 1</small>
                         </div>
                         <img id="preview-1" class="preview-img" hidden>
-                        <button class="remove-photo-btn" data-target="1" hidden>×</button>
+                        <button class="remove-photo-btn" data-target="1" hidden><i class="fas fa-times"></i></button>
                     </div>
                     <div class="vs">VS</div>
                     <div class="photo-upload-box" id="photo-upload-2">
                         <input type="file" accept="image/*" id="file-input-2" hidden>
                         <div class="upload-placeholder">
-                            <span>+</span>
+                            <i class="fas fa-plus"></i>
                             <small>Foto 2</small>
                         </div>
                         <img id="preview-2" class="preview-img" hidden>
-                        <button class="remove-photo-btn" data-target="2" hidden>×</button>
+                        <button class="remove-photo-btn" data-target="2" hidden><i class="fas fa-times"></i></button>
                     </div>
                 </div>
 
@@ -268,7 +271,7 @@
             <!-- Voter View: Answer Question (Only for Question Mode) -->
             <div id="answer-view" class="view">
                 <div class="back-header">
-                    <button id="back-vote-btn" class="btn small icon-btn">←</button>
+                    <button id="back-vote-btn" class="btn small icon-btn"><i class="fas fa-arrow-left"></i></button>
                     <h2>Antwoord geven</h2>
                 </div>
                 
@@ -316,7 +319,10 @@
                     </div>
                 </div>
 
-                <div class="timer-container">
+                <div class="timer-container" id="result-timer-container">
+                    <div class="timer-text-display">
+                        <span id="timer-text">Volgende ronde over <span id="timer-seconds">0</span>s</span>
+                    </div>
                     <div class="timer-bar">
                         <div id="timer-progress" class="timer-progress"></div>
                     </div>
@@ -344,6 +350,28 @@
             <p id="alert-message">Bericht</p>
             <div class="modal-actions">
                 <button id="alert-ok-btn" class="btn primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crop Modal -->
+    <div id="crop-modal" class="modal">
+        <div class="modal-content crop-modal-content">
+            <h3>Crop Foto</h3>
+            <div class="crop-container">
+                <canvas id="crop-canvas"></canvas>
+                <div class="crop-overlay">
+                    <div class="crop-box" id="crop-box">
+                        <div class="crop-handle crop-handle-nw"></div>
+                        <div class="crop-handle crop-handle-ne"></div>
+                        <div class="crop-handle crop-handle-sw"></div>
+                        <div class="crop-handle crop-handle-se"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="crop-actions">
+                <button id="crop-cancel-btn" class="btn secondary">Annuleren</button>
+                <button id="crop-confirm-btn" class="btn primary">Bevestigen</button>
             </div>
         </div>
     </div>

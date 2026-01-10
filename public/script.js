@@ -51,6 +51,9 @@ const playerCountIndicator = document.getElementById('player-count-indicator');
 const opponentsDisplay = document.getElementById('opponents-display');
 const roundDisplay = document.getElementById('round-display');
 const timerProgress = document.getElementById('timer-progress');
+const timerSeconds = document.getElementById('timer-seconds');
+const timerText = document.getElementById('timer-text');
+const resultTimerContainer = document.getElementById('result-timer-container');
 const selectedQuestionText = document.getElementById('selected-question-text');
 const answerDisplay = document.getElementById('answer-display');
 const creatorNameDisplay = document.getElementById('creator-name-display');
@@ -81,6 +84,18 @@ let createTimerInterval = null;
 let createTimerSeconds = null;
 let pageVisibilityTimeout = null;
 let selectedVotePerson = null;
+let turnId = null;
+let currentCropImage = null;
+let currentCropTarget = null;
+let cropBox = null;
+let isCropping = false;
+let cropStartX = 0;
+let cropStartY = 0;
+let cropBoxX = 0;
+let cropBoxY = 0;
+let cropBoxSize = 200;
+let initialCropBoxX = 0;
+let initialCropBoxY = 0;
 
 // Socket Init
 socket.on('connect', () => {
@@ -208,6 +223,61 @@ createConfirmBtn.addEventListener('click', () => {
     }, 5000);
 });
 
+// Input monitoring for auto-submit detection
+let lastInputTime = Date.now();
+let inputMonitoringInterval = null;
+
+function startInputMonitoring() {
+    if (inputMonitoringInterval) return;
+    lastInputTime = Date.now();
+}
+
+function stopInputMonitoring() {
+    if (inputMonitoringInterval) {
+        clearInterval(inputMonitoringInterval);
+        inputMonitoringInterval = null;
+    }
+}
+
+// Track input on option fields
+if (option1Input) {
+    option1Input.addEventListener('input', () => {
+        lastInputTime = Date.now();
+    });
+}
+
+if (option2Input) {
+    option2Input.addEventListener('input', () => {
+        lastInputTime = Date.now();
+    });
+}
+
+// Track photo uploads
+['file-input-1', 'file-input-2'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+        input.addEventListener('change', () => {
+            lastInputTime = Date.now();
+        });
+    }
+});
+
+// Track vote person question input
+const votePersonQuestionInput = document.getElementById('vote-person-question-input');
+if (votePersonQuestionInput) {
+    votePersonQuestionInput.addEventListener('input', () => {
+        lastInputTime = Date.now();
+    });
+}
+
+// Track photo question input  
+const photoQuestionInput = document.getElementById('photo-question-input');
+if (photoQuestionInput) {
+    photoQuestionInput.addEventListener('input', () => {
+        lastInputTime = Date.now();
+    });
+}
+
 // Join Flow
 joinBtn.addEventListener('click', () => {
     if (!validateName()) return;
@@ -308,21 +378,6 @@ hostStartBtn.addEventListener('click', () => {
     socket.emit('start-game-request', currentRoom);
 });
 
-// Copy room code functionality
-document.getElementById('copy-code-btn')?.addEventListener('click', () => {
-    const code = roomCodeDisplay.textContent;
-    navigator.clipboard.writeText(code).then(() => {
-        const btn = document.getElementById('copy-code-btn');
-        const originalText = btn.textContent;
-        btn.textContent = '✓ Gekopieerd!';
-        btn.style.background = 'var(--success)';
-        setTimeout(() => {
-            btn.textContent = originalText;
-            btn.style.background = '';
-        }, 2000);
-    });
-});
-
 socket.on('error', (msg) => {
     showAlert('Fout', msg);
     joinBtn.disabled = false;
@@ -344,18 +399,14 @@ function updateRound(r) {
     roundDisplay.textContent = r;
 }
 
-function handleTurn(turnId) {
+function handleTurn(newTurnId) {
+    turnId = newTurnId;
     if (slideshowInterval) {
         clearInterval(slideshowInterval);
         slideshowInterval = null;
     }
     
-    // Stop create timer if running
-    if (createTimerInterval) {
-        clearInterval(createTimerInterval);
-        createTimerInterval = null;
-    }
-    createTimerSeconds = null;
+    // Timer will be managed by server now
     
     // Reset inputs
     option1Input.value = '';
@@ -382,12 +433,20 @@ function handleTurn(turnId) {
     const timerContainer = document.getElementById('timer-display-container');
     if (timerContainer) timerContainer.style.display = 'none';
     
+    // Reset result timer
+    resetTimer();
+    
     // Reset vote person selection
     selectedVotePerson = null;
     
     if (turnId === myId) {
         setupCreatorView();
-        startCreateTimer();
+        // Request server to start shared timer (everyone sees it)
+        if (currentSettings.createTimerMinutes && currentSettings.createTimerMinutes > 0) {
+            setTimeout(() => {
+                socket.emit('start-create-timer', currentRoom);
+            }, 100);
+        }
     } else {
         const creator = players.find(p => p.id === turnId);
         creatorNameDisplay.textContent = creator ? creator.name : 'De ander';
@@ -397,71 +456,129 @@ function handleTurn(turnId) {
     }
 }
 
-function startCreateTimer() {
-    const timerMinutes = currentSettings.createTimerMinutes;
-    if (!timerMinutes || timerMinutes === 0) {
-        // Infinite timer
-        return;
-    }
-    
-    createTimerSeconds = timerMinutes * 60;
+// Server-side timer handling - everyone sees the timer
+socket.on('create-timer-update', ({ remainingSeconds, totalSeconds }) => {
     const timerContainer = document.getElementById('timer-display-container');
     const timerValue = document.getElementById('timer-value');
     
     if (timerContainer && timerValue) {
         timerContainer.style.display = 'block';
-        updateTimerDisplay();
         
-        createTimerInterval = setInterval(() => {
-            createTimerSeconds--;
-            updateTimerDisplay();
+        if (remainingSeconds <= 0) {
+            timerValue.textContent = '0:00';
+            timerValue.style.color = 'var(--danger)';
+        } else {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            timerValue.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
-            if (createTimerSeconds <= 0) {
-                clearInterval(createTimerInterval);
-                createTimerInterval = null;
-                // Auto-submit if user has entered something
-                autoSubmitIfReady();
+            // Change color when time is running out
+            if (remainingSeconds <= 30) {
+                timerValue.style.color = 'var(--danger)';
+            } else if (remainingSeconds <= 60) {
+                timerValue.style.color = '#ffa502';
+            } else {
+                timerValue.style.color = 'var(--primary)';
             }
-        }, 1000);
+        }
     }
-}
+    
+    // Also show timer in voter waiting view
+    const voterWaitingView = document.querySelector('#voter-waiting-view');
+    if (voterWaitingView && voterWaitingView.classList.contains('active')) {
+        const waitingText = document.querySelector('#voter-waiting-view h2');
+        if (waitingText && remainingSeconds > 0) {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            const creatorName = creatorNameDisplay ? creatorNameDisplay.textContent : 'De speler';
+            waitingText.innerHTML = `<span>${creatorName}</span> maakt iets... <br><small style="color: var(--primary); font-size: 0.8em; margin-top: 10px; display: block;">${minutes}:${secs.toString().padStart(2, '0')}</small>`;
+        }
+    }
+});
 
-function updateTimerDisplay() {
-    const timerValue = document.getElementById('timer-value');
-    if (!timerValue) return;
-    
-    if (createTimerSeconds === null || createTimerSeconds <= 0) {
-        timerValue.textContent = '∞';
-        return;
+socket.on('create-timer-stopped', () => {
+    const timerContainer = document.getElementById('timer-display-container');
+    if (timerContainer) {
+        timerContainer.style.display = 'none';
     }
-    
-    const minutes = Math.floor(createTimerSeconds / 60);
-    const seconds = createTimerSeconds % 60;
-    timerValue.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    
-    // Change color when time is running out
-    if (createTimerSeconds <= 30) {
-        timerValue.style.color = 'var(--danger)';
-    } else if (createTimerSeconds <= 60) {
-        timerValue.style.color = '#ffa502';
-    } else {
-        timerValue.style.color = 'var(--primary)';
-    }
-}
+});
 
-function autoSubmitIfReady() {
-    // Check if user has entered something
-    const hasTextContent = (currentMode !== 'photo') && 
-        (option1Input.value.trim() || option2Input.value.trim());
-    const hasPhotoContent = (currentMode === 'photo') && 
-        (photoData[1] || photoData[2]);
+socket.on('timer-expired', ({ message }) => {
+    // Timer expired notification - shown to everyone
+    // Check if we're the creator by checking current view
+    const creatorInputView = document.getElementById('creator-input-view');
+    const isCreatorActive = creatorInputView && creatorInputView.classList.contains('active');
     
-    if (hasTextContent || hasPhotoContent) {
-        // Auto submit
-        submitDilemmaBtn.click();
+    if (isCreatorActive && turnId === myId) {
+        // Creator: try to auto-submit if enough is filled
+        attemptAutoSubmit();
     } else {
-        // Show warning
-        showAlert('Tijd Verlopen', 'De tijd is op! Vul iets in om automatisch te versturen.');
+        // Others: show message
+        const waitingView = document.querySelector('#voter-waiting-view h2');
+        if (waitingView) {
+            waitingView.textContent = message || 'Timer verlopen!';
+        }
+    }
+});
+
+socket.on('timer-expired-check', ({ message }) => {
+    // Creator's timer expired - check if can auto-submit
+    attemptAutoSubmit();
+});
+
+socket.on('round-skipped', ({ message }) => {
+    showAlert('Ronde Overgeslagen', message);
+});
+
+function attemptAutoSubmit() {
+    // Check what's filled and decide if we can auto-submit
+    let canSubmit = false;
+    let payload = {
+        roomCode: currentRoom,
+        type: currentMode
+    };
+
+    if (currentMode === 'photo') {
+        const hasBoth = photoData[1] && photoData[2];
+        if (hasBoth) {
+            canSubmit = true;
+            payload.option1 = photoData[1];
+            payload.option2 = photoData[2];
+            const photoQuestion = document.getElementById('photo-question-input')?.value.trim();
+            if (photoQuestion) {
+                payload.question = photoQuestion;
+            }
+        }
+    } else if (currentMode === 'vote-person') {
+        const question = document.getElementById('vote-person-question-input')?.value.trim();
+        if (question) {
+            canSubmit = true;
+            payload.question = question;
+            payload.option1 = 'vote-person';
+            payload.option2 = 'vote-person';
+        }
+    } else {
+        // For dilemmas/questions: need BOTH options with content
+        const opt1 = option1Input.value.trim();
+        const opt2 = option2Input.value.trim();
+        const timeSinceLastInput = Date.now() - lastInputTime;
+        
+        // Check if both are filled, OR if user was just typing (within 3 seconds) and has both
+        if (opt1 && opt2 && opt1.length > 0 && opt2.length > 0) {
+            // Both complete - definitely submit
+            canSubmit = true;
+            payload.option1 = opt1;
+            payload.option2 = opt2;
+        }
+    }
+
+    if (canSubmit) {
+        // Auto submit - enough is filled
+        payload.isAutoSubmit = true;
+        socket.emit('submit-dilemma', payload);
+    } else {
+        // Not enough filled - round will be skipped by server
+        // Server will handle skip after delay
     }
 }
 
@@ -552,7 +669,278 @@ function setCreatorMode(mode) {
     }
 }
 
-// Compress Image Logic
+// Crop Modal Functions
+function openCropModal(file) {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+            currentCropImage = img;
+            const canvas = document.getElementById('crop-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size to fit image
+            const maxSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 500);
+            let canvasWidth = img.width;
+            let canvasHeight = img.height;
+            
+            if (canvasWidth > maxSize || canvasHeight > maxSize) {
+                const ratio = maxSize / Math.max(canvasWidth, canvasHeight);
+                canvasWidth = canvasWidth * ratio;
+                canvasHeight = canvasHeight * ratio;
+            }
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+            
+            // Initialize crop box (square, centered, 60% of canvas size)
+            cropBoxSize = Math.min(canvasWidth, canvasHeight) * 0.6;
+            cropBoxX = (canvasWidth - cropBoxSize) / 2;
+            cropBoxY = (canvasHeight - cropBoxSize) / 2;
+            
+            updateCropBox();
+            document.getElementById('crop-modal').classList.add('active');
+        };
+        img.src = e.target.result;
+    };
+}
+
+function updateCropBox() {
+    if (!cropBox) {
+        cropBox = document.getElementById('crop-box');
+        if (!cropBox) return;
+    }
+    const canvas = document.getElementById('crop-canvas');
+    if (!canvas) return;
+    const container = canvas.parentElement;
+    if (!container) return;
+    
+    const canvasRect = canvas.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    
+    // Calculate position relative to container
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    
+    cropBox.style.width = (cropBoxSize * scaleX) + 'px';
+    cropBox.style.height = (cropBoxSize * scaleY) + 'px';
+    cropBox.style.left = (canvasRect.left - containerRect.left + (cropBoxX * scaleX)) + 'px';
+    cropBox.style.top = (canvasRect.top - containerRect.top + (cropBoxY * scaleY)) + 'px';
+}
+
+function cropImage() {
+    if (!currentCropImage || !currentCropTarget) return;
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const sourceCanvas = document.getElementById('crop-canvas');
+    if (!sourceCanvas) return;
+    
+    // Calculate crop coordinates relative to original image
+    const scaleX = currentCropImage.width / sourceCanvas.width;
+    const scaleY = currentCropImage.height / sourceCanvas.height;
+    
+    const cropX = cropBoxX * scaleX;
+    const cropY = cropBoxY * scaleY;
+    const cropSize = cropBoxSize * Math.min(scaleX, scaleY);
+    
+    canvas.width = 800;
+    canvas.height = 800;
+    
+    ctx.drawImage(
+        currentCropImage,
+        cropX, cropY, cropSize, cropSize,
+        0, 0, 800, 800
+    );
+    
+    const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    const num = currentCropTarget;
+    photoData[num] = croppedDataUrl;
+    
+    const img = document.getElementById(`preview-${num}`);
+    if (img) {
+        img.src = croppedDataUrl;
+        img.hidden = false;
+    }
+    const removeBtn = document.querySelector(`.remove-photo-btn[data-target="${num}"]`);
+    if (removeBtn) {
+        removeBtn.hidden = false;
+    }
+    
+    closeCropModal();
+}
+
+function closeCropModal() {
+    document.getElementById('crop-modal')?.classList.remove('active');
+    currentCropImage = null;
+    currentCropTarget = null;
+}
+
+// Crop Modal Event Listeners (set up after DOM loads)
+if (document.getElementById('crop-confirm-btn')) {
+    document.getElementById('crop-confirm-btn').addEventListener('click', cropImage);
+}
+if (document.getElementById('crop-cancel-btn')) {
+    document.getElementById('crop-cancel-btn').addEventListener('click', closeCropModal);
+}
+
+// Crop Box Drag Functionality
+let isDragging = false;
+let dragHandle = null;
+let initialCropBoxX = 0;
+let initialCropBoxY = 0;
+let initialCropBoxSize = 0;
+
+function setupCropDrag() {
+    const cropBoxElement = document.getElementById('crop-box');
+    if (!cropBoxElement) return;
+    
+    cropBoxElement.addEventListener('mousedown', handleCropMouseDown);
+    cropBoxElement.addEventListener('touchstart', handleCropTouchStart, { passive: false });
+}
+
+function handleCropMouseDown(e) {
+    if (e.target.classList.contains('crop-handle')) {
+        isDragging = true;
+        dragHandle = e.target.classList[1];
+        const canvas = document.getElementById('crop-canvas');
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            cropStartX = (e.clientX - rect.left) * scaleX;
+            cropStartY = (e.clientY - rect.top) * scaleY;
+        } else {
+            cropStartX = e.clientX;
+            cropStartY = e.clientY;
+        }
+        initialCropBoxX = cropBoxX;
+        initialCropBoxY = cropBoxY;
+        initialCropBoxSize = cropBoxSize;
+    } else {
+        isDragging = true;
+        dragHandle = 'move';
+        const canvas = document.getElementById('crop-canvas');
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            cropStartX = (e.clientX - rect.left) * scaleX - cropBoxX;
+            cropStartY = (e.clientY - rect.top) * scaleY - cropBoxY;
+        } else {
+            cropStartX = e.clientX - cropBoxX;
+            cropStartY = e.clientY - cropBoxY;
+        }
+    }
+    e.preventDefault();
+    document.addEventListener('mousemove', handleCropMouseMove);
+    document.addEventListener('mouseup', handleCropMouseUp);
+}
+
+function handleCropTouchStart(e) {
+    if (e.target.classList.contains('crop-handle')) {
+        isDragging = true;
+        dragHandle = e.target.classList[1];
+        const canvas = document.getElementById('crop-canvas');
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            cropStartX = (e.touches[0].clientX - rect.left) * scaleX;
+            cropStartY = (e.touches[0].clientY - rect.top) * scaleY;
+        } else {
+            cropStartX = e.touches[0].clientX;
+            cropStartY = e.touches[0].clientY;
+        }
+        initialCropBoxX = cropBoxX;
+        initialCropBoxY = cropBoxY;
+        initialCropBoxSize = cropBoxSize;
+    } else {
+        isDragging = true;
+        dragHandle = 'move';
+        const canvas = document.getElementById('crop-canvas');
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            cropStartX = (e.touches[0].clientX - rect.left) * scaleX - cropBoxX;
+            cropStartY = (e.touches[0].clientY - rect.top) * scaleY - cropBoxY;
+        } else {
+            cropStartX = e.touches[0].clientX - cropBoxX;
+            cropStartY = e.touches[0].clientY - cropBoxY;
+        }
+    }
+    e.preventDefault();
+    document.addEventListener('touchmove', handleCropTouchMove, { passive: false });
+    document.addEventListener('touchend', handleCropTouchEnd);
+}
+
+function handleCropMouseMove(e) {
+    if (!isDragging) return;
+    updateCropPosition(e.clientX, e.clientY);
+}
+
+function handleCropTouchMove(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    if (e.touches.length > 0) {
+        updateCropPosition(e.touches[0].clientX, e.touches[0].clientY);
+    }
+}
+
+function updateCropPosition(clientX, clientY) {
+    const canvas = document.getElementById('crop-canvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const canvasX = (clientX - rect.left) * scaleX;
+    const canvasY = (clientY - rect.top) * scaleY;
+    
+    if (dragHandle === 'move') {
+        cropBoxX = Math.max(0, Math.min(canvas.width - cropBoxSize, canvasX - cropStartX));
+        cropBoxY = Math.max(0, Math.min(canvas.height - cropBoxSize, canvasY - cropStartY));
+    } else if (dragHandle) {
+        // Resize from corner
+        const centerX = initialCropBoxX + initialCropBoxSize / 2;
+        const centerY = initialCropBoxY + initialCropBoxSize / 2;
+        const deltaX = Math.abs(canvasX - centerX);
+        const deltaY = Math.abs(canvasY - centerY);
+        const newSize = Math.max(50, Math.min(Math.min(canvas.width, canvas.height), Math.max(deltaX, deltaY) * 2));
+        cropBoxSize = newSize;
+        cropBoxX = Math.max(0, Math.min(canvas.width - cropBoxSize, centerX - cropBoxSize / 2));
+        cropBoxY = Math.max(0, Math.min(canvas.height - cropBoxSize, centerY - cropBoxSize / 2));
+    }
+    
+    updateCropBox();
+}
+
+function handleCropMouseUp() {
+    isDragging = false;
+    dragHandle = null;
+    document.removeEventListener('mousemove', handleCropMouseMove);
+    document.removeEventListener('mouseup', handleCropMouseUp);
+}
+
+function handleCropTouchEnd() {
+    isDragging = false;
+    dragHandle = null;
+    document.removeEventListener('touchmove', handleCropTouchMove);
+    document.removeEventListener('touchend', handleCropTouchEnd);
+}
+
+// Initialize crop drag when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupCropDrag);
+} else {
+    setupCropDrag();
+}
+
+// Compress Image Logic (for backwards compatibility)
 function compressImage(file, maxWidth, quality, callback) {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -592,14 +980,9 @@ document.querySelectorAll('.photo-upload-box').forEach(box => {
     document.getElementById(id).addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            compressImage(file, 800, 0.7, (compressedDataUrl) => {
-                const num = id.split('-')[2];
-                photoData[num] = compressedDataUrl;
-                const img = document.getElementById(`preview-${num}`);
-                img.src = compressedDataUrl;
-                img.hidden = false;
-                document.querySelector(`.remove-photo-btn[data-target="${num}"]`).hidden = false;
-            });
+            const num = id.split('-')[2];
+            currentCropTarget = num;
+            openCropModal(file);
         }
     });
 });
@@ -618,7 +1001,8 @@ document.querySelectorAll('.remove-photo-btn').forEach(btn => {
 submitDilemmaBtn.addEventListener('click', () => {
     let payload = {
         roomCode: currentRoom,
-        type: currentMode
+        type: currentMode,
+        isAutoSubmit: false
     };
 
     if (currentMode === 'photo') {
@@ -646,7 +1030,7 @@ submitDilemmaBtn.addEventListener('click', () => {
     } else {
         const opt1 = option1Input.value.trim();
         const opt2 = option2Input.value.trim();
-        if (!opt1 || !opt2) {
+        if (!opt1 || !opt2 || opt1.length === 0 || opt2.length === 0) {
             showAlert('Let op', 'Vul beide opties in!');
             return;
         }
@@ -654,12 +1038,8 @@ submitDilemmaBtn.addEventListener('click', () => {
         payload.option2 = opt2;
     }
 
-    // Stop timer
-    if (createTimerInterval) {
-        clearInterval(createTimerInterval);
-        createTimerInterval = null;
-    }
-    
+    // Timer will be stopped by server when submitted
+    payload.isAutoSubmit = false;
     socket.emit('submit-dilemma', payload);
 });
 
@@ -676,7 +1056,7 @@ socket.on('update-vote-status', (statusList) => {
         statusList.forEach(s => {
             const chip = document.createElement('span');
             chip.className = 'voter-chip' + (s.voted ? ' voted' : '');
-            chip.textContent = s.name + (s.voted ? ' ✓' : '');
+            chip.innerHTML = s.name + (s.voted ? ' <i class="fas fa-check"></i>' : '');
             votersProgressContainer.appendChild(chip);
         });
     }
@@ -989,6 +1369,7 @@ socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, vote
     }
     
     showView('result');
+    // Timer bar will be started by startProgressBar calls above
 });
 
 function playAnswerSlideshow(answers, dilemma) {
@@ -1027,16 +1408,75 @@ function playAnswerSlideshow(answers, dilemma) {
     slideshowInterval = setInterval(showAnswer, 10000);
 }
 
+let timerInterval = null;
+let timerRemainingSeconds = 0;
+
 function startProgressBar(duration) {
+    // Clear any existing timer
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+    
+    // Show timer container
+    if (resultTimerContainer) {
+        resultTimerContainer.style.display = 'block';
+    }
+    
+    // Calculate seconds
+    timerRemainingSeconds = Math.ceil(duration / 1000);
+    
+    // Update display immediately
+    if (timerSeconds) {
+        timerSeconds.textContent = timerRemainingSeconds;
+    }
+    
+    // Reset progress bar
     timerProgress.style.transition = 'none';
     timerProgress.style.width = '100%';
-    void timerProgress.offsetWidth;
+    void timerProgress.offsetWidth; // Force reflow
+    
+    // Start animation
     timerProgress.style.transition = `width ${duration}ms linear`;
     timerProgress.style.width = '0%';
+    
+    // Update seconds counter
+    timerInterval = setInterval(() => {
+        timerRemainingSeconds--;
+        if (timerSeconds) {
+            timerSeconds.textContent = Math.max(0, timerRemainingSeconds);
+        }
+        
+        if (timerRemainingSeconds <= 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            if (timerSeconds) {
+                timerSeconds.textContent = '0';
+            }
+        }
+    }, 1000);
 }
 
-socket.on('new-round', ({ turnId, round }) => {
+// Reset timer when view changes
+function resetTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    timerRemainingSeconds = 0;
+    if (timerProgress) {
+        timerProgress.style.width = '0%';
+        timerProgress.style.transition = 'none';
+    }
+    if (resultTimerContainer) {
+        resultTimerContainer.style.display = 'none';
+    }
+}
+
+socket.on('new-round', ({ turnId, round, settings }) => {
     updateRound(round);
+    if (settings) {
+        currentSettings = settings;
+    }
     handleTurn(turnId);
 });
 
@@ -1075,6 +1515,7 @@ function resetGame() {
         clearTimeout(pageVisibilityTimeout);
         pageVisibilityTimeout = null;
     }
+    stopInputMonitoring();
     
     currentRoom = null;
     currentDilemma = null;

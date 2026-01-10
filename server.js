@@ -94,8 +94,15 @@ function finishRound(roomCode) {
         if (rooms[roomCode]) { 
             io.to(roomCode).emit('new-round', { 
                 turnId: room.players[room.turnIndex].id,
-                round: room.round
+                round: room.round,
+                settings: rooms[roomCode].settings
             });
+            
+            // Start timer for new round if enabled
+            const newRoom = rooms[roomCode];
+            if (newRoom.settings.createTimerMinutes && newRoom.settings.createTimerMinutes > 0) {
+                // Timer will start when creator view is shown (via client request)
+            }
         }
     }, delay);
 }
@@ -208,6 +215,7 @@ io.on('connection', (socket) => {
         if (!room || room.started) return;
 
         room.started = true;
+        room.createTimerInterval = null;
         io.to(roomCode).emit('game-start', { 
             turnId: room.players[room.turnIndex].id,
             round: room.round,
@@ -216,12 +224,135 @@ io.on('connection', (socket) => {
         });
     }
 
-    socket.on('submit-dilemma', ({ roomCode, option1, option2, type, question }) => {
+    // Start shared timer for dilemma creation (when turn starts)
+    function startCreateTimer(roomCode) {
+        const room = rooms[roomCode];
+        if (!room || room.createTimerInterval) return;
+
+        const timerMinutes = room.settings.createTimerMinutes;
+        if (!timerMinutes || timerMinutes === 0) return; // Infinite timer
+
+        let remainingSeconds = timerMinutes * 60;
+        room.createTimerStartTime = Date.now();
+        room.createTimerRemaining = remainingSeconds;
+
+        // Send initial timer to everyone
+        io.to(roomCode).emit('create-timer-update', {
+            remainingSeconds: remainingSeconds,
+            totalSeconds: remainingSeconds
+        });
+
+        room.createTimerInterval = setInterval(() => {
+            remainingSeconds--;
+            room.createTimerRemaining = remainingSeconds;
+
+            // Send update to everyone
+            io.to(roomCode).emit('create-timer-update', {
+                remainingSeconds: remainingSeconds,
+                totalSeconds: timerMinutes * 60
+            });
+
+            if (remainingSeconds <= 0) {
+                clearInterval(room.createTimerInterval);
+                room.createTimerInterval = null;
+                // Timer expired - check if we should auto-submit or skip
+                handleTimerExpired(roomCode);
+            }
+        }, 1000);
+    }
+
+    function stopCreateTimer(roomCode) {
+        const room = rooms[roomCode];
+        if (room && room.createTimerInterval) {
+            clearInterval(room.createTimerInterval);
+            room.createTimerInterval = null;
+            room.createTimerRemaining = null;
+            // Notify everyone timer stopped
+            io.to(roomCode).emit('create-timer-stopped');
+        }
+    }
+
+    function handleTimerExpired(roomCode) {
+        const room = rooms[roomCode];
+        if (!room) return;
+
+        // Notify the creator to check if they can auto-submit
+        const creatorId = room.players[room.turnIndex]?.id;
+        if (creatorId) {
+            io.to(creatorId).emit('timer-expired-check', {
+                message: 'Timer verlopen! Controleer of je kunt verzenden...'
+            });
+        }
+
+        // Also notify everyone that timer expired
+        io.to(roomCode).emit('timer-expired', {
+            message: 'De tijd is op!'
+        });
+
+        // Wait a moment for auto-submit, then skip if still no submission
+        setTimeout(() => {
+            const currentRoom = rooms[roomCode];
+            if (currentRoom && !currentRoom.dilemma && currentRoom.createTimerRemaining === 0) {
+                // No submission made - skip round
+                currentRoom.votes = {};
+                currentRoom.round++;
+                currentRoom.turnIndex = (currentRoom.turnIndex + 1) % currentRoom.players.length;
+                
+                io.to(roomCode).emit('round-skipped', {
+                    message: 'Ronde overgeslagen - niet genoeg ingevuld. Volgende speler!'
+                });
+
+                setTimeout(() => {
+                    if (rooms[roomCode]) {
+                        const nextRoom = rooms[roomCode];
+                        io.to(roomCode).emit('new-round', {
+                            turnId: nextRoom.players[nextRoom.turnIndex].id,
+                            round: nextRoom.round,
+                            settings: nextRoom.settings
+                        });
+                    }
+                }, 2000);
+            }
+        }, 2000);
+    }
+
+    socket.on('submit-dilemma', ({ roomCode, option1, option2, type, question, isAutoSubmit }) => {
         const room = rooms[roomCode];
         if (room && room.players[room.turnIndex].id === socket.id) {
+            // Validate that enough is filled in
+            if (type === 'photo') {
+                if (!option1 || !option2) {
+                    if (isAutoSubmit) {
+                        // Timer expired and not enough filled - skip will be handled
+                        return;
+                    }
+                    socket.emit('error', 'Upload beide fotos!');
+                    return;
+                }
+            } else if (type === 'vote-person') {
+                if (!question || !question.trim()) {
+                    if (isAutoSubmit) {
+                        return;
+                    }
+                    socket.emit('error', 'Vul een vraag in!');
+                    return;
+                }
+            } else {
+                if (!option1 || !option2 || !option1.trim() || !option2.trim()) {
+                    if (isAutoSubmit) {
+                        return;
+                    }
+                    socket.emit('error', 'Vul beide opties in!');
+                    return;
+                }
+            }
+
             room.dilemma = { option1, option2, type, question: question || null };
             room.votes = {}; // Ensure votes are fresh
             room.dilemmaStartTime = Date.now();
+            
+            // Stop create timer
+            stopCreateTimer(roomCode);
             
             socket.to(roomCode).emit('dilemma-received', { 
                 option1, option2, type, question: question || null,
@@ -230,6 +361,17 @@ io.on('connection', (socket) => {
             
             socket.emit('waiting-for-vote');
             broadcastVoteStatus(roomCode); // Show initial status
+        }
+    });
+
+    socket.on('start-create-timer', (roomCode) => {
+        // Client requests timer start when creator view is shown
+        const room = rooms[roomCode];
+        if (room && room.players[room.turnIndex] && room.players[room.turnIndex].id === socket.id) {
+            // Only start if no dilemma exists yet (timer is for creating, not after submission)
+            if (!room.dilemma) {
+                startCreateTimer(roomCode);
+            }
         }
     });
 
@@ -313,7 +455,8 @@ function handleDisconnect(socket, roomCode) {
                  if (room.started) {
                     io.to(roomCode).emit('new-round', {
                         turnId: room.players[room.turnIndex].id,
-                        round: room.round
+                        round: room.round,
+                        settings: room.settings
                     });
                  }
              } else {
