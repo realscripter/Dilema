@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 
 function generateRoomCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = '0123456789';
     let code = '';
     do {
         code = '';
@@ -559,7 +559,7 @@ function handleDisconnect(socket, roomCode) {
 // Check for inactive players periodically (5 minutes timeout)
 setInterval(() => {
     const now = Date.now();
-    const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    const INACTIVE_TIMEOUT = 15 * 60 * 1000; // 15 minutes (was 5 minutes - increased to allow inactivity)
     
     for (const [roomCode, room] of Object.entries(rooms)) {
         if (!room.playerLastActive) continue;
@@ -577,7 +577,7 @@ setInterval(() => {
             }
         }
     }
-}, 30000); // Check every 30 seconds
+}, 60000); // Check every 60 seconds (was 30 seconds)
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {

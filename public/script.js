@@ -114,12 +114,12 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-// Send activity updates periodically while in game
+// Send activity updates periodically while in game (reduced frequency to allow inactivity)
 setInterval(() => {
     if (currentRoom && !document.hidden) {
         socket.emit('player-activity', currentRoom);
     }
-}, 30000);
+}, 60000); // Every 60 seconds instead of 30
 
 // Navigation
 function showScreen(screenName) {
@@ -702,39 +702,109 @@ function setCreatorMode(mode) {
 }
 
 function openCropModal(file) {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-            currentCropImage = img;
-            const canvas = document.getElementById('crop-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            const maxSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 500);
-            let canvasWidth = img.width;
-            let canvasHeight = img.height;
-            
-            if (canvasWidth > maxSize || canvasHeight > maxSize) {
-                const ratio = maxSize / Math.max(canvasWidth, canvasHeight);
-                canvasWidth = canvasWidth * ratio;
-                canvasHeight = canvasHeight * ratio;
+    try {
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showAlert('Fout', 'Foto is te groot! Maximaal 10MB.');
+            return;
+        }
+        
+        const reader = new FileReader();
+        
+        reader.onerror = () => {
+            showAlert('Fout', 'Kon foto niet laden. Probeer een andere foto.');
+            // Reset file input
+            if (currentCropTarget) {
+                const input = document.getElementById(`file-input-${currentCropTarget}`);
+                if (input) input.value = '';
             }
-            
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-            
-            ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
-            
-            cropBoxSize = Math.min(canvasWidth, canvasHeight) * 0.6;
-            cropBoxX = (canvasWidth - cropBoxSize) / 2;
-            cropBoxY = (canvasHeight - cropBoxSize) / 2;
-            
-            updateCropBox();
-            document.getElementById('crop-modal').classList.add('active');
         };
-        img.src = e.target.result;
-    };
+        
+        reader.onload = (e) => {
+            try {
+                const img = new Image();
+                
+                img.onerror = () => {
+                    showAlert('Fout', 'Foto is beschadigd of niet ondersteund.');
+                    // Reset file input
+                    if (currentCropTarget) {
+                        const input = document.getElementById(`file-input-${currentCropTarget}`);
+                        if (input) input.value = '';
+                    }
+                };
+                
+                img.onload = () => {
+                    try {
+                        currentCropImage = img;
+                        const canvas = document.getElementById('crop-canvas');
+                        if (!canvas) {
+                            showAlert('Fout', 'Crop canvas niet gevonden.');
+                            return;
+                        }
+                        
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            showAlert('Fout', 'Kon canvas context niet laden.');
+                            return;
+                        }
+                        
+                        const maxSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 500);
+                        let canvasWidth = img.width;
+                        let canvasHeight = img.height;
+                        
+                        if (canvasWidth > maxSize || canvasHeight > maxSize) {
+                            const ratio = maxSize / Math.max(canvasWidth, canvasHeight);
+                            canvasWidth = Math.floor(canvasWidth * ratio);
+                            canvasHeight = Math.floor(canvasHeight * ratio);
+                        }
+                        
+                        canvas.width = canvasWidth;
+                        canvas.height = canvasHeight;
+                        
+                        ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+                        
+                        cropBoxSize = Math.min(canvasWidth, canvasHeight) * 0.6;
+                        cropBoxX = (canvasWidth - cropBoxSize) / 2;
+                        cropBoxY = (canvasHeight - cropBoxSize) / 2;
+                        
+                        updateCropBox();
+                        const cropModal = document.getElementById('crop-modal');
+                        if (cropModal) {
+                            cropModal.classList.add('active');
+                        }
+                    } catch (err) {
+                        console.error('Error processing image:', err);
+                        showAlert('Fout', 'Kon foto niet verwerken. Probeer een andere foto.');
+                        // Reset file input
+                        if (currentCropTarget) {
+                            const input = document.getElementById(`file-input-${currentCropTarget}`);
+                            if (input) input.value = '';
+                        }
+                    }
+                };
+                
+                img.src = e.target.result;
+            } catch (err) {
+                console.error('Error creating image:', err);
+                showAlert('Fout', 'Kon foto niet laden. Probeer een andere foto.');
+                // Reset file input
+                if (currentCropTarget) {
+                    const input = document.getElementById(`file-input-${currentCropTarget}`);
+                    if (input) input.value = '';
+                }
+            }
+        };
+        
+        reader.readAsDataURL(file);
+    } catch (err) {
+        console.error('Error reading file:', err);
+        showAlert('Fout', 'Kon foto niet lezen. Probeer een andere foto.');
+        // Reset file input
+        if (currentCropTarget) {
+            const input = document.getElementById(`file-input-${currentCropTarget}`);
+            if (input) input.value = '';
+        }
+    }
 }
 
 function updateCropBox() {
@@ -993,14 +1063,36 @@ document.querySelectorAll('.photo-upload-box').forEach(box => {
 });
 
 ['file-input-1', 'file-input-2'].forEach(id => {
-    document.getElementById(id).addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const num = id.split('-')[2];
-            currentCropTarget = num;
-            openCropModal(file);
-        }
-    });
+    const input = document.getElementById(id);
+    if (input) {
+        input.addEventListener('change', (e) => {
+            try {
+                const file = e.target.files[0];
+                if (file) {
+                    // Check file type
+                    if (!file.type.startsWith('image/')) {
+                        showAlert('Fout', 'Alleen afbeeldingen zijn toegestaan.');
+                        e.target.value = '';
+                        return;
+                    }
+                    
+                    const num = id.split('-')[2];
+                    currentCropTarget = num;
+                    openCropModal(file);
+                    
+                    // Update activity
+                    if (currentRoom) {
+                        socket.emit('player-activity', currentRoom);
+                    }
+                    lastInputTime = Date.now();
+                }
+            } catch (err) {
+                console.error('Error handling file input:', err);
+                showAlert('Fout', 'Kon foto niet verwerken. Probeer opnieuw.');
+                e.target.value = '';
+            }
+        });
+    }
 });
 
 document.querySelectorAll('.remove-photo-btn').forEach(btn => {
