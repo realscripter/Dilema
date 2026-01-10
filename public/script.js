@@ -441,6 +441,7 @@ function handleTurn(newTurnId) {
     
     if (turnId === myId) {
         setupCreatorView();
+        startInputMonitoring(); // Start monitoring input for auto-submit detection
         // Request server to start shared timer (everyone sees it)
         if (currentSettings.createTimerMinutes && currentSettings.createTimerMinutes > 0) {
             setTimeout(() => {
@@ -448,6 +449,7 @@ function handleTurn(newTurnId) {
             }, 100);
         }
     } else {
+        stopInputMonitoring(); // Stop monitoring if not creator
         const creator = players.find(p => p.id === turnId);
         creatorNameDisplay.textContent = creator ? creator.name : 'De ander';
         document.querySelector('#voter-waiting-view h2').innerHTML = `<span>${creatorNameDisplay.textContent}</span> maakt iets...`;
