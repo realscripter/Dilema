@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const rooms = {};
 
 function generateRoomCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let code = '';
     do {
         code = '';
@@ -32,17 +32,28 @@ function finishRound(roomCode) {
 
     let votesByOption = { 1: [], 2: [] };
     let answers = []; 
+    let votePersonResults = {}; // For vote-person mode: { playerId: [voter names] }
 
     Object.entries(room.votes).forEach(([playerId, vote]) => {
         const player = room.players.find(p => p.id === playerId);
         if (player) {
-            votesByOption[vote.choice].push(player.name);
-            if (vote.answer) {
-                answers.push({ 
-                    name: player.name, 
-                    text: vote.answer,
-                    choice: vote.choice 
-                });
+            if (room.dilemma.type === 'vote-person') {
+                // For vote-person: vote.selectedPersonId contains the ID of the person voted for
+                if (vote.selectedPersonId) {
+                    if (!votePersonResults[vote.selectedPersonId]) {
+                        votePersonResults[vote.selectedPersonId] = [];
+                    }
+                    votePersonResults[vote.selectedPersonId].push(player.name);
+                }
+            } else {
+                votesByOption[vote.choice].push(player.name);
+                if (vote.answer) {
+                    answers.push({ 
+                        name: player.name, 
+                        text: vote.answer,
+                        choice: vote.choice 
+                    });
+                }
             }
         }
     });
@@ -54,12 +65,25 @@ function finishRound(roomCode) {
         winningChoice,
         votesByOption, 
         dilemma: room.dilemma,
-        answers: answers
+        answers: answers,
+        votePersonResults: room.dilemma.type === 'vote-person' ? votePersonResults : null
     });
 
     // Reset round state
     room.votes = {};
-    const delay = (room.dilemma.type === 'question') ? (answers.length * 10000 + 2000) : 6000;
+    
+    // Calculate delay based on type and number of players
+    let delay;
+    if (room.dilemma.type === 'question') {
+        // Question mode: show each answer for 10 seconds
+        delay = answers.length * 10000 + 2000;
+    } else if (room.dilemma.type === 'dilemma') {
+        // Dilemma mode: longer delay with more players (6 seconds base + 2 seconds per player)
+        delay = 6000 + (room.players.length * 2000);
+    } else {
+        // Other modes: default 6 seconds
+        delay = 6000;
+    }
     
     // Clear dilemma after sending result
     room.dilemma = null;
@@ -96,7 +120,7 @@ function broadcastVoteStatus(roomCode) {
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('create-room', ({ playerName, maxPlayers, allowedModes }) => {
+    socket.on('create-room', ({ playerName, maxPlayers, allowedModes, createTimerMinutes }) => {
         if (!playerName || playerName.length > 12) return;
         
         const roomCode = generateRoomCode();
@@ -107,17 +131,20 @@ io.on('connection', (socket) => {
             }],
             settings: {
                 maxPlayers: maxPlayers || 2,
-                allowedModes: allowedModes || ['dilemma', 'question', 'photo']
+                allowedModes: allowedModes || ['dilemma', 'question', 'photo'],
+                createTimerMinutes: createTimerMinutes || null // null = infinite
             },
             started: false,
             turnIndex: 0, 
             dilemma: null,
             round: 1,
-            votes: {}
+            votes: {},
+            playerLastActive: {} // Track when players were last active
         };
 
+        rooms[roomCode].playerLastActive[socket.id] = Date.now();
         socket.join(roomCode);
-        socket.emit('room-created', { code: roomCode, players: rooms[roomCode].players });
+        socket.emit('room-created', { code: roomCode, players: rooms[roomCode].players, settings: rooms[roomCode].settings });
     });
 
     socket.on('join-room', ({ roomCode, playerName }) => {
@@ -148,6 +175,7 @@ io.on('connection', (socket) => {
             id: socket.id,
             name: playerName
         });
+        room.playerLastActive[socket.id] = Date.now();
         
         socket.join(roomCode);
         
@@ -188,14 +216,15 @@ io.on('connection', (socket) => {
         });
     }
 
-    socket.on('submit-dilemma', ({ roomCode, option1, option2, type }) => {
+    socket.on('submit-dilemma', ({ roomCode, option1, option2, type, question }) => {
         const room = rooms[roomCode];
         if (room && room.players[room.turnIndex].id === socket.id) {
-            room.dilemma = { option1, option2, type };
+            room.dilemma = { option1, option2, type, question: question || null };
             room.votes = {}; // Ensure votes are fresh
+            room.dilemmaStartTime = Date.now();
             
             socket.to(roomCode).emit('dilemma-received', { 
-                option1, option2, type, 
+                option1, option2, type, question: question || null,
                 creatorName: room.players[room.turnIndex].name 
             });
             
@@ -204,11 +233,18 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('vote', ({ roomCode, choice, answer }) => {
+    socket.on('player-activity', (roomCode) => {
+        const room = rooms[roomCode];
+        if (room && room.playerLastActive) {
+            room.playerLastActive[socket.id] = Date.now();
+        }
+    });
+
+    socket.on('vote', ({ roomCode, choice, answer, selectedPersonId }) => {
         const room = rooms[roomCode];
         if (room && room.dilemma) {
             // Track votes
-            room.votes[socket.id] = { choice, answer };
+            room.votes[socket.id] = { choice, answer, selectedPersonId };
             
             // Broadcast progress to everyone
             broadcastVoteStatus(roomCode);
@@ -249,6 +285,11 @@ function handleDisconnect(socket, roomCode) {
         // Remove player's vote
         if (room.votes[socket.id]) {
             delete room.votes[socket.id];
+        }
+        
+        // Remove from activity tracking
+        if (room.playerLastActive && room.playerLastActive[socket.id]) {
+            delete room.playerLastActive[socket.id];
         }
 
         room.players.splice(playerIndex, 1);
@@ -296,6 +337,29 @@ function handleDisconnect(socket, roomCode) {
         }
     }
 }
+
+// Check for inactive players periodically (5 minutes timeout)
+setInterval(() => {
+    const now = Date.now();
+    const INACTIVE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    
+    for (const [roomCode, room] of Object.entries(rooms)) {
+        if (!room.playerLastActive) continue;
+        
+        for (const [playerId, lastActive] of Object.entries(room.playerLastActive)) {
+            if (now - lastActive > INACTIVE_TIMEOUT) {
+                // Player inactive for too long, find and remove them
+                const playerIndex = room.players.findIndex(p => p.id === playerId);
+                if (playerIndex !== -1) {
+                    const socket = io.sockets.sockets.get(playerId);
+                    if (socket) {
+                        handleDisconnect(socket, roomCode);
+                    }
+                }
+            }
+        }
+    }
+}, 30000); // Check every 30 seconds
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {

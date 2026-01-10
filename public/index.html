@@ -65,6 +65,24 @@
                             <span>Foto Modus</span>
                             <div class="toggle-switch" data-mode="photo"></div>
                         </div>
+                        <div class="toggle-row">
+                            <span>Vote de Persoon</span>
+                            <div class="toggle-switch" data-mode="vote-person"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label>Tijd om Vraag te Maken</label>
+                    <div class="timer-selector">
+                        <select id="timer-select" class="timer-select">
+                            <option value="0">Oneindig (Standaard)</option>
+                            <option value="1">1 minuut</option>
+                            <option value="2">2 minuten</option>
+                            <option value="3">3 minuten</option>
+                            <option value="5">5 minuten</option>
+                            <option value="10">10 minuten</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -75,20 +93,29 @@
         <!-- Waiting Screen -->
         <div id="waiting-screen" class="screen">
             <div class="header">
-                <span class="room-display">Code: <strong id="room-code-display">ABCDEF</strong></span>
+                <div class="room-code-display-large">
+                    <div class="code-label">KAMER CODE</div>
+                    <div class="code-value" id="room-code-display">ABCDEF</div>
+                    <button class="copy-code-btn" id="copy-code-btn">📋 Kopieer</button>
+                </div>
                 <button id="leave-btn" class="btn small">Verlaten</button>
             </div>
             <div class="content centered">
-                <div class="loader"></div>
-                <h2 id="waiting-text">Wachten op spelers...</h2>
-                <div id="player-count-indicator" class="count-badge">1 / 2</div>
+                <div class="lobby-status">
+                    <div class="loader"></div>
+                    <h2 id="waiting-text">Wachten op spelers...</h2>
+                    <div id="player-count-indicator" class="count-badge">1 / 2</div>
+                </div>
+                
                 <div id="player-list" class="player-list">
                     <!-- Players will be listed here -->
                 </div>
                 
-                <button id="host-start-btn" class="btn primary" style="display: none; margin-bottom: 20px;">Start Nu Spelen</button>
+                <div class="lobby-settings-display" id="lobby-settings-display">
+                    <!-- Settings info will go here -->
+                </div>
                 
-                <p>Deel de code met je vrienden!</p>
+                <button id="host-start-btn" class="btn primary" style="display: none; margin-top: 20px;">Start Nu Spelen</button>
             </div>
         </div>
 
@@ -135,6 +162,13 @@
                             <small>Kies 2 fotos</small>
                         </div>
                     </button>
+                    <button id="choice-vote-person-btn" class="btn choice-card vote-person">
+                        <span class="icon">👤</span>
+                        <div class="text">
+                            <span>VOTE DE PERSOON</span>
+                            <small>Stel een vraag en stem op iemand</small>
+                        </div>
+                    </button>
                 </div>
             </div>
 
@@ -156,6 +190,7 @@
 
                 <!-- Photo Inputs -->
                 <div id="photo-inputs" class="inputs photo-inputs" style="display: none;">
+                    <input type="text" id="photo-question-input" placeholder="Stel een vraag (bijv. 'Wie is lekkerder?')" style="margin-bottom: 15px;">
                     <div class="photo-upload-box" id="photo-upload-1">
                         <input type="file" accept="image/*" id="file-input-1" hidden>
                         <div class="upload-placeholder">
@@ -174,6 +209,17 @@
                         </div>
                         <img id="preview-2" class="preview-img" hidden>
                         <button class="remove-photo-btn" data-target="2" hidden>×</button>
+                    </div>
+                </div>
+
+                <!-- Vote Person Input -->
+                <div id="vote-person-inputs" class="inputs" style="display: none;">
+                    <input type="text" id="vote-person-question-input" placeholder="Stel een vraag (bijv. 'Wie is het liefste?')">
+                </div>
+
+                <div class="timer-display-container" id="timer-display-container" style="display: none;">
+                    <div class="timer-display">
+                        <span id="timer-display-text">Tijd resterend: <span id="timer-value">∞</span></span>
                     </div>
                 </div>
 
@@ -205,6 +251,16 @@
                     <div class="vs-small">VS</div>
                     <div class="photo-option" id="vote-photo-2">
                         <img id="vote-img-2" src="">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voter View: Vote Person -->
+            <div id="vote-person-view" class="view">
+                <h2 id="vote-person-question-title">Kies een persoon</h2>
+                <div class="vote-person-list-container">
+                    <div id="vote-person-list" class="vote-person-list">
+                        <!-- Players will be listed here -->
                     </div>
                 </div>
             </div>
@@ -250,6 +306,14 @@
                 <!-- Answer Display for Question Mode -->
                 <div id="answer-display" class="answer-box" style="display: none;">
                     <!-- Content injected by JS -->
+                </div>
+
+                <!-- Vote Person Results -->
+                <div id="vote-person-results" class="vote-person-results" style="display: none;">
+                    <h3 id="vote-person-results-question"></h3>
+                    <div id="vote-person-results-list" class="vote-person-results-list">
+                        <!-- Results will be shown here -->
+                    </div>
                 </div>
 
                 <div class="timer-container">
