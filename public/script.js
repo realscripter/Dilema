@@ -187,6 +187,9 @@ backSettingsBtn.addEventListener('click', () => {
 // Settings Toggles (Allowed Modes)
 document.querySelectorAll('.toggle-switch').forEach(toggle => {
     toggle.addEventListener('click', (e) => {
+        e.preventDefault(); // Prevent any default behavior
+        e.stopPropagation(); // Stop event bubbling
+        
         // Special handling for rare round toggle
         if (toggle.id === 'rare-round-toggle') {
             toggle.classList.toggle('active');
@@ -196,10 +199,11 @@ document.querySelectorAll('.toggle-switch').forEach(toggle => {
             }
         } else {
             // For mode toggles, ensure at least one is active
-            e.target.classList.toggle('active');
+            // FIXED: Use 'toggle' instead of 'e.target' to always target the correct element
+            toggle.classList.toggle('active');
             const active = document.querySelectorAll('.toggle-switch.active:not(#rare-round-toggle)');
             if (active.length === 0) {
-                e.target.classList.add('active');
+                toggle.classList.add('active'); // FIXED: Use 'toggle' instead of 'e.target'
             }
         }
     });
