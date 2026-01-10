@@ -1166,50 +1166,66 @@ socket.on('update-vote-status', (statusList) => {
     }
 });
 socket.on('dilemma-received', ({ option1, option2, type, creatorName, question }) => {
-currentDilemma = { option1, option2, type, question };
-const textOptions = document.getElementById('text-vote-options');
-const photoOptions = document.getElementById('photo-vote-options');
-const votePersonView = document.getElementById('vote-person-view');
-const title = document.querySelector('#vote-view h2');
-
-if (type === 'vote-person') {
-    textOptions.style.display = 'none';
-    photoOptions.style.display = 'none';
-    if (votePersonView) {
-        showView('votePerson');
-        setupVotePersonList(question, creatorName);
+    try {
+        currentDilemma = { option1, option2, type, question };
+        const textOptions = document.getElementById('text-vote-options');
+        const photoOptions = document.getElementById('photo-vote-options');
+        const votePersonView = document.getElementById('vote-person-view');
+        const title = document.querySelector('#vote-view h2');
+        
+        if (!title) {
+            console.error('Vote view title not found');
+            return;
+        }
+        
+        if (type === 'vote-person') {
+            if (textOptions) textOptions.style.display = 'none';
+            if (photoOptions) photoOptions.style.display = 'none';
+            if (votePersonView) {
+                showView('votePerson');
+                setupVotePersonList(question || 'Kies een persoon', creatorName);
+            }
+            return;
+        } else if (type === 'photo') {
+            if (textOptions) textOptions.style.display = 'none';
+            if (photoOptions) photoOptions.style.display = 'flex';
+            if (votePersonView) votePersonView.style.display = 'none';
+            
+            const voteImg1 = document.getElementById('vote-img-1');
+            const voteImg2 = document.getElementById('vote-img-2');
+            if (voteImg1) voteImg1.src = option1;
+            if (voteImg2) voteImg2.src = option2;
+            
+            const votePhoto1 = document.getElementById('vote-photo-1');
+            const votePhoto2 = document.getElementById('vote-photo-2');
+            if (votePhoto1) votePhoto1.onclick = () => handleVoteChoice(1);
+            if (votePhoto2) votePhoto2.onclick = () => handleVoteChoice(2);
+            
+            if (question) {
+                title.textContent = `${creatorName}: ${question}`;
+            } else {
+                title.textContent = `${creatorName}: Welke foto wint?`;
+            }
+        } else {
+            if (textOptions) textOptions.style.display = 'flex';
+            if (photoOptions) photoOptions.style.display = 'none';
+            if (votePersonView) votePersonView.style.display = 'none';
+            
+            if (voteBtn1) voteBtn1.textContent = option1 || 'Optie 1';
+            if (voteBtn2) voteBtn2.textContent = option2 || 'Optie 2';
+            
+            if (type === 'question') {
+                title.textContent = `${creatorName} stelt vragen. Kies er één!`;
+            } else {
+                title.textContent = `${creatorName} stelt een dilemma!`;
+            }
+        }
+        
+        showView('vote');
+    } catch (err) {
+        console.error('Error handling dilemma-received:', err);
+        showAlert('Fout', 'Kon dilemma niet laden. Probeer opnieuw.');
     }
-    return;
-} else if (type === 'photo') {
-    textOptions.style.display = 'none';
-    photoOptions.style.display = 'flex';
-    if (votePersonView) votePersonView.style.display = 'none';
-    document.getElementById('vote-img-1').src = option1;
-    document.getElementById('vote-img-2').src = option2;
-    
-    document.getElementById('vote-photo-1').onclick = () => handleVoteChoice(1);
-    document.getElementById('vote-photo-2').onclick = () => handleVoteChoice(2);
-    
-    if (question) {
-        title.textContent = `${creatorName}: ${question}`;
-    } else {
-        title.textContent = `${creatorName}: Welke foto wint?`;
-    }
-} else {
-    textOptions.style.display = 'flex';
-    photoOptions.style.display = 'none';
-    if (votePersonView) votePersonView.style.display = 'none';
-    voteBtn1.textContent = option1;
-    voteBtn2.textContent = option2;
-    
-    if (type === 'question') {
-        title.textContent = `${creatorName} stelt vragen. Kies er één!`;
-    } else {
-        title.textContent = `${creatorName} stelt een dilemma!`;
-    }
-}
-
-showView('vote');
 });
 function setupVotePersonList(question, creatorName) {
     const votePersonList = document.getElementById('vote-person-list');
