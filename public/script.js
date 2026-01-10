@@ -210,9 +210,31 @@ document.querySelectorAll('.num-btn').forEach(btn => {
 
 createConfirmBtn.addEventListener('click', () => {
     const allowed = [];
+    // Only include game mode toggles, not rare-round-toggle
     document.querySelectorAll('.toggle-switch.active').forEach(t => {
-        allowed.push(t.dataset.mode);
+        const mode = t.dataset.mode;
+        // Filter out rare-round and other non-game-mode toggles
+        if (mode && mode !== 'rare-round' && ['dilemma', 'question', 'photo', 'vote-person'].includes(mode)) {
+            allowed.push(mode);
+        }
     });
+    
+    // Ensure at least one game mode is selected
+    if (allowed.length === 0) {
+        showAlert('Fout', 'Selecteer minimaal één spelmodus!');
+        createConfirmBtn.disabled = false;
+        createConfirmBtn.textContent = 'Start Lobby';
+        return;
+    }
+    
+    // Validate name is set
+    if (!myName || myName.trim().length === 0) {
+        if (!validateName()) {
+            createConfirmBtn.disabled = false;
+            createConfirmBtn.textContent = 'Start Lobby';
+            return;
+        }
+    }
 
     const timerValue = parseInt(document.getElementById('timer-select').value) || 0;
     const timerMinutes = timerValue === 0 ? null : timerValue;
@@ -226,6 +248,8 @@ createConfirmBtn.addEventListener('click', () => {
 
     createConfirmBtn.disabled = true; 
     createConfirmBtn.textContent = 'Bezig...';
+
+    console.log('Creating room with:', { playerName: myName, maxPlayers: currentSettings.maxPlayers, allowedModes: allowed });
 
     socket.emit('create-room', {
         playerName: myName,
