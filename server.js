@@ -626,7 +626,6 @@ io.on('connection', (socket) => {
                 creatorName: room.players[room.turnIndex].name
             });
         }
-        }
     });
 
     socket.on('start-create-timer', (roomCode) => {
