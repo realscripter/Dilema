@@ -6,6 +6,7 @@ const io = require('socket.io')(http, {
     maxHttpBufferSize: 50 * 1024 * 1024 
 });
 const path = require('path');
+const https = require('https');
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -22,6 +23,132 @@ function generateRoomCode() {
         }
     } while (rooms[code]); // Ensure unique
     return code;
+}
+
+// AI Anti-swearing filter using llm7.io API (experimental)
+// Uses OpenAI-compatible API endpoint: https://api.llm7.io/v1
+async function checkWithAI(text, apiKey) {
+    if (!apiKey || !text || !text.trim()) return { isClean: true, filteredText: text };
+    
+    return new Promise((resolve) => {
+        // Simple keyword-based filter as fallback
+        const commonSwearWords = ['kut', 'klote', 'tyfus', 'kanker', 'fuck', 'shit', 'damn', 'hell', 'kut', 'godver', 'verdomme']; // Dutch + English
+        
+        // Check for common swear words (case insensitive)
+        const textLower = text.toLowerCase();
+        const hasSwearWord = commonSwearWords.some(word => textLower.includes(word));
+        
+        if (hasSwearWord && apiKey) {
+            // Try to filter with llm7.io API (OpenAI-compatible)
+            const data = JSON.stringify({
+                model: 'default',
+                messages: [
+                    {
+                        role: 'user',
+                        content: `Check if this text contains swear words or offensive language in Dutch or English. Return only JSON: {"isClean": true/false, "filteredText": "cleaned version with swear words replaced by ***"}. Text: "${text}"`
+                    }
+                ],
+                temperature: 0.1
+            });
+            
+            const options = {
+                hostname: 'api.llm7.io',
+                port: 443,
+                path: '/v1/chat/completions',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Length': data.length
+                }
+            };
+            
+            const req = https.request(options, (res) => {
+                let responseData = '';
+                res.on('data', (chunk) => {
+                    responseData += chunk;
+                });
+                res.on('end', () => {
+                    try {
+                        const result = JSON.parse(responseData);
+                        const aiResponse = result.choices?.[0]?.message?.content || '';
+                        
+                        // Try to parse JSON from AI response
+                        let parsedResult;
+                        try {
+                            parsedResult = JSON.parse(aiResponse);
+                        } catch {
+                            // If not JSON, check if response suggests it's clean
+                            parsedResult = {
+                                isClean: !hasSwearWord || aiResponse.toLowerCase().includes('clean') || aiResponse.toLowerCase().includes('geen'),
+                                filteredText: text
+                            };
+                        }
+                        
+                        if (!parsedResult.isClean && parsedResult.filteredText) {
+                            resolve({
+                                isClean: false,
+                                filteredText: parsedResult.filteredText
+                            });
+                        } else {
+                            // Use keyword filter as fallback
+                            let filteredText = text;
+                            commonSwearWords.forEach(word => {
+                                const regex = new RegExp(word, 'gi');
+                                filteredText = filteredText.replace(regex, '***');
+                            });
+                            resolve({ isClean: false, filteredText: filteredText });
+                        }
+                    } catch (e) {
+                        console.error('AI filter parse error:', e);
+                        // Use keyword filter as fallback
+                        let filteredText = text;
+                        commonSwearWords.forEach(word => {
+                            const regex = new RegExp(word, 'gi');
+                            filteredText = filteredText.replace(regex, '***');
+                        });
+                        resolve({ isClean: false, filteredText: filteredText });
+                    }
+                });
+            });
+            
+            req.on('error', (e) => {
+                console.error('AI filter request error:', e);
+                // Fallback to keyword filtering
+                let filteredText = text;
+                commonSwearWords.forEach(word => {
+                    const regex = new RegExp(word, 'gi');
+                    filteredText = filteredText.replace(regex, '***');
+                });
+                resolve({ isClean: false, filteredText: filteredText });
+            });
+            
+            req.setTimeout(3000, () => {
+                req.destroy();
+                // Timeout - use keyword filter
+                let filteredText = text;
+                commonSwearWords.forEach(word => {
+                    const regex = new RegExp(word, 'gi');
+                    filteredText = filteredText.replace(regex, '***');
+                });
+                resolve({ isClean: false, filteredText: filteredText });
+            });
+            
+            req.write(data);
+            req.end();
+        } else if (hasSwearWord) {
+            // No API key but swear word detected - use keyword filter
+            let filteredText = text;
+            commonSwearWords.forEach(word => {
+                const regex = new RegExp(word, 'gi');
+                filteredText = filteredText.replace(regex, '***');
+            });
+            resolve({ isClean: false, filteredText: filteredText });
+        } else {
+            // No swear words detected
+            resolve({ isClean: true, filteredText: text });
+        }
+    });
 }
 
 // Global helper for finishing rounds
@@ -194,7 +321,7 @@ function broadcastVoteStatus(roomCode) {
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('create-room', ({ playerName, maxPlayers, allowedModes, createTimerMinutes, maxRounds, rareRoundEnabled, rareRoundFrequency, randomTurnOrder }) => {
+    socket.on('create-room', ({ playerName, maxPlayers, allowedModes, createTimerMinutes, maxRounds, rareRoundEnabled, rareRoundFrequency, randomTurnOrder, aiFilterEnabled, aiApiKey }) => {
         if (!playerName || playerName.length > 12) return;
         
         const roomCode = generateRoomCode();
@@ -210,7 +337,9 @@ io.on('connection', (socket) => {
                 maxRounds: maxRounds || null, // null = infinite, number = rounds per player
                 rareRoundEnabled: rareRoundEnabled || false,
                 rareRoundFrequency: rareRoundFrequency || 5, // Every X questions
-                randomTurnOrder: randomTurnOrder || false // Random turn order (no same player twice in a row)
+                randomTurnOrder: randomTurnOrder || false, // Random turn order (no same player twice in a row)
+                aiFilterEnabled: aiFilterEnabled || false, // AI anti-swearing filter
+                aiApiKey: aiApiKey || null // ll7m.io API key
             },
             started: false,
             turnIndex: 0,
@@ -396,7 +525,7 @@ io.on('connection', (socket) => {
         }, 2000);
     }
 
-    socket.on('submit-dilemma', ({ roomCode, option1, option2, type, question, isAutoSubmit }) => {
+    socket.on('submit-dilemma', async ({ roomCode, option1, option2, type, question, isAutoSubmit }) => {
         const room = rooms[roomCode];
         if (room && room.players[room.turnIndex].id === socket.id) {
             // NOTE: No maxRounds check - rounds are infinite by default
@@ -429,8 +558,38 @@ io.on('connection', (socket) => {
                     return;
                 }
             }
+            
+            // AI Filter check if enabled (experimental)
+            let finalOption1 = option1;
+            let finalOption2 = option2;
+            let finalQuestion = question;
+            
+            if (room.settings.aiFilterEnabled && room.settings.aiApiKey) {
+                try {
+                    if (type === 'vote-person' && question) {
+                        const aiCheck = await checkWithAI(question, room.settings.aiApiKey);
+                        if (!aiCheck.isClean) {
+                            socket.emit('error', 'Je bericht bevat ongepast taalgebruik. Pas het aan.');
+                            return;
+                        }
+                        finalQuestion = aiCheck.filteredText;
+                    } else if (option1 && option2) {
+                        const check1 = await checkWithAI(option1, room.settings.aiApiKey);
+                        const check2 = await checkWithAI(option2, room.settings.aiApiKey);
+                        if (!check1.isClean || !check2.isClean) {
+                            socket.emit('error', 'Je bericht bevat ongepast taalgebruik. Pas het aan.');
+                            return;
+                        }
+                        finalOption1 = check1.filteredText;
+                        finalOption2 = check2.filteredText;
+                    }
+                } catch (error) {
+                    console.error('AI filter error:', error);
+                    // Fail safe - continue without filtering
+                }
+            }
 
-            room.dilemma = { option1, option2, type, question: question || null };
+            room.dilemma = { option1: finalOption1, option2: finalOption2, type, question: finalQuestion || null };
             room.votes = {}; // Ensure votes are fresh
             room.dilemmaStartTime = Date.now();
             
@@ -454,6 +613,19 @@ io.on('connection', (socket) => {
                 socket.emit('waiting-for-vote');
             }
             broadcastVoteStatus(roomCode); // Show initial status
+        }
+    });
+
+    // Live typing updates for vote-person question input
+    socket.on('vote-person-typing', ({ roomCode, question }) => {
+        const room = rooms[roomCode];
+        if (room && room.players[room.turnIndex].id === socket.id && !room.dilemma) {
+            // Broadcast typing update to everyone except the typer
+            socket.to(roomCode).emit('vote-person-typing-update', {
+                question: question || '',
+                creatorName: room.players[room.turnIndex].name
+            });
+        }
         }
     });
 

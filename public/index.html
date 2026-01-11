@@ -27,6 +27,42 @@
                     <button id="join-btn" class="btn secondary">Join</button>
                 </div>
             </div>
+            
+            <button id="changelog-btn" class="btn small" style="margin-top: 20px; background: var(--secondary); color: var(--text); padding: 10px 20px; font-size: 0.9rem;">📋 Changelog</button>
+        </div>
+
+        <!-- Changelog Modal -->
+        <div id="changelog-modal" class="modal">
+            <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
+                <h3>📋 Changelog</h3>
+                <div id="changelog-content" style="text-align: left; margin-top: 20px;">
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">Versie 2.0 - Huidige Update</h4>
+                        <ul style="list-style: none; padding: 0;">
+                            <li style="margin-bottom: 8px;">✅ Verbeterde vraag display: toont nu "(Naam) Koos: (optie) omdat: (reden)"</li>
+                            <li style="margin-bottom: 8px;">✅ Meerderheid wordt nu bovenaan getoond</li>
+                            <li style="margin-bottom: 8px;">✅ Vote de Persoon: live typing updates voor alle spelers</li>
+                            <li style="margin-bottom: 8px;">✅ Speciale ronde (rare round) verbeteringen</li>
+                            <li style="margin-bottom: 8px;">✅ AI Anti-Scheldwoorden modus toegevoegd (experimenteel, ll7m.io)</li>
+                            <li style="margin-bottom: 8px;">✅ Willekeurige beurtvolgorde optie</li>
+                            <li style="margin-bottom: 8px;">✅ Lobby timeout verwijderd - lobby blijft voor altijd actief</li>
+                            <li style="margin-bottom: 8px;">✅ Crop modal verbeteringen voor mobile</li>
+                            <li style="margin-bottom: 8px;">✅ Foto selectie toont vierkant naast elkaar</li>
+                        </ul>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: var(--accent); margin-bottom: 10px;">Versie 1.0 - Laatste Fixes</h4>
+                        <ul style="list-style: none; padding: 0;">
+                            <li style="margin-bottom: 8px;">✅ Bug fixes voor rare rounds</li>
+                            <li style="margin-bottom: 8px;">✅ Max rondes fix</li>
+                            <li style="margin-bottom: 8px;">✅ Polish verbeteringen</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button id="changelog-close-btn" class="btn primary">Sluiten</button>
+                </div>
+            </div>
         </div>
 
         <!-- Create Settings Screen -->
@@ -104,6 +140,19 @@
                     <div class="toggle-row">
                         <span>Willekeurige volgorde (geen zelfde speler 2x achter elkaar)</span>
                         <div class="toggle-switch" id="random-turn-order-toggle" data-mode="random-turn-order"></div>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label>AI Anti-Scheldwoorden (Experimenteel)</label>
+                    <div class="toggle-row">
+                        <span>Activeer AI filtering met ll7m.io API</span>
+                        <div class="toggle-switch" id="ai-filter-toggle" data-mode="ai-filter"></div>
+                    </div>
+                    <div id="ai-filter-settings" style="display: none; margin-top: 10px;">
+                        <label style="font-size: 0.9rem; color: #a4b0be;">API Key (llm7.io):</label>
+                        <input type="text" id="ai-api-key" placeholder="Voer je llm7.io API key in (token.llm7.io)" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 8px; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); color: var(--text);">
+                        <small style="color: #747d8c; font-size: 0.8rem; display: block; margin-top: 5px;">Experimentele feature - Gebruikt keyword filtering als fallback. Haal gratis token op: <a href="https://token.llm7.io" target="_blank" style="color: var(--accent);">token.llm7.io</a></small>
                     </div>
                 </div>
             </div>

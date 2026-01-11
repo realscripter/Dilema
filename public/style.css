@@ -1255,11 +1255,36 @@ textarea {
     padding-bottom: 10px;
 }
 
+.slide-choice-label {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-bottom: 10px;
+    font-weight: 600;
+    padding: 10px;
+    background: rgba(83, 82, 237, 0.1);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+}
+
+.slide-choice-label strong {
+    color: var(--primary);
+}
+
+.slide-answer-label {
+    font-size: 0.9rem;
+    color: #a4b0be;
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
 .slide-answer {
     font-size: 1.3rem;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1.5;
     color: #fff;
+    margin-top: 5px;
 }
 
 /* Timer - Fixed and Improved */

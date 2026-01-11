@@ -197,9 +197,15 @@ document.querySelectorAll('.toggle-switch').forEach(toggle => {
         } else if (toggle.id === 'random-turn-order-toggle') {
             // Random turn order can be toggled independently
             toggle.classList.toggle('active');
+        } else if (toggle.id === 'ai-filter-toggle') {
+            toggle.classList.toggle('active');
+            const aiFilterSettings = document.getElementById('ai-filter-settings');
+            if (aiFilterSettings) {
+                aiFilterSettings.style.display = toggle.classList.contains('active') ? 'block' : 'none';
+            }
         } else {
             toggle.classList.toggle('active');
-            const active = document.querySelectorAll('.toggle-switch.active:not(#rare-round-toggle):not(#random-turn-order-toggle)');
+            const active = document.querySelectorAll('.toggle-switch.active:not(#rare-round-toggle):not(#random-turn-order-toggle):not(#ai-filter-toggle)');
             if (active.length === 0) {
                 toggle.classList.add('active');
             }
@@ -254,6 +260,10 @@ createConfirmBtn.addEventListener('click', () => {
     
     const randomTurnOrderToggle = document.getElementById('random-turn-order-toggle');
     const randomTurnOrder = randomTurnOrderToggle && randomTurnOrderToggle.classList.contains('active');
+    
+    const aiFilterToggle = document.getElementById('ai-filter-toggle');
+    const aiFilterEnabled = aiFilterToggle && aiFilterToggle.classList.contains('active');
+    const aiApiKey = aiFilterEnabled ? document.getElementById('ai-api-key')?.value?.trim() : null;
 
     createConfirmBtn.disabled = true; 
     createConfirmBtn.textContent = 'Bezig...';
@@ -268,7 +278,9 @@ createConfirmBtn.addEventListener('click', () => {
         maxRounds: null, // Always infinite
         rareRoundEnabled: rareRoundEnabled,
         rareRoundFrequency: rareRoundFrequency,
-        randomTurnOrder: randomTurnOrder || false
+        randomTurnOrder: randomTurnOrder || false,
+        aiFilterEnabled: aiFilterEnabled || false,
+        aiApiKey: aiApiKey || null
     });
     
     setTimeout(() => {
@@ -316,11 +328,30 @@ if (option2Input) {
     }
 });
 
-// Track vote person question input
+// Track vote person question input - send live updates
 const votePersonQuestionInput = document.getElementById('vote-person-question-input');
+let votePersonTypingTimeout = null;
 if (votePersonQuestionInput) {
     votePersonQuestionInput.addEventListener('input', () => {
         lastInputTime = Date.now();
+        
+        // Send live typing update to other players
+        if (currentRoom && turnId === myId && currentMode === 'vote-person') {
+            clearTimeout(votePersonTypingTimeout);
+            const question = votePersonQuestionInput.value;
+            socket.emit('vote-person-typing', {
+                roomCode: currentRoom,
+                question: question
+            });
+            
+            // Clear timeout after 2 seconds of no typing
+            votePersonTypingTimeout = setTimeout(() => {
+                socket.emit('vote-person-typing', {
+                    roomCode: currentRoom,
+                    question: null // Clear indicator
+                });
+            }, 2000);
+        }
     });
 }
 
@@ -493,8 +524,15 @@ function handleTurn(newTurnId) {
     // Check for rare round
     if (currentSettings.isRareRound && currentSettings.rareRoundQuestion) {
         // Rare round: show question and let current player create dilemma based on it
-        // TODO: Implement rare round UI
         console.log('Rare round! Question:', currentSettings.rareRoundQuestion);
+        if (turnId === myId) {
+            // Show rare round indicator for creator
+            showAlert('🎉 Speciale Ronde!', `Je moet nu een dilemma maken gebaseerd op: "${currentSettings.rareRoundQuestion}"`);
+        } else {
+            // Show indicator for voters
+            const creator = players.find(p => p.id === turnId);
+            showAlert('🎉 Speciale Ronde!', `${creator ? creator.name : 'De speler'} maakt een dilemma gebaseerd op: "${currentSettings.rareRoundQuestion}"`);
+        }
     }
     
     if (turnId === myId) {
@@ -687,27 +725,53 @@ function setCreatorMode(mode) {
     photoInputs.style.display = 'none';
     if (votePersonInputs) votePersonInputs.style.display = 'none';
 
+    // Show rare round hint if active
+    const showRareRoundHint = (container) => {
+        if (currentSettings.isRareRound && currentSettings.rareRoundQuestion && container) {
+            const existingHint = container.querySelector('.rare-round-hint');
+            if (existingHint) existingHint.remove();
+            
+            const rareRoundHint = document.createElement('div');
+            rareRoundHint.className = 'rare-round-hint';
+            rareRoundHint.style.cssText = 'background: rgba(83, 82, 237, 0.2); border: 2px solid var(--accent); border-radius: 12px; padding: 15px; margin-bottom: 15px; text-align: center;';
+            rareRoundHint.innerHTML = `<strong style="color: var(--accent);">🎉 Speciale Ronde!</strong><br><span style="color: #a4b0be; font-size: 0.9rem;">Baseer je dilemma op: "${currentSettings.rareRoundQuestion}"</span>`;
+            container.insertBefore(rareRoundHint, container.firstChild);
+        }
+    };
+    
     if (mode === 'dilemma') {
         title.textContent = 'Nieuw Dilemma';
-        instruction.textContent = 'Verzin een lastig dilemma.';
+        instruction.textContent = currentSettings.isRareRound && currentSettings.rareRoundQuestion 
+            ? `Maak een dilemma gebaseerd op: "${currentSettings.rareRoundQuestion}"`
+            : 'Verzin een lastig dilemma.';
         option1Input.placeholder = 'Optie 1...';
         option2Input.placeholder = 'Optie 2...';
+        showRareRoundHint(textInputs);
     } else if (mode === 'question') {
         title.textContent = 'Nieuwe Vragen';
-        instruction.textContent = 'Stel twee vragen. De anderen kiezen er één.';
+        instruction.textContent = currentSettings.isRareRound && currentSettings.rareRoundQuestion
+            ? `Stel twee vragen gebaseerd op: "${currentSettings.rareRoundQuestion}"`
+            : 'Stel twee vragen. De anderen kiezen er één.';
         option1Input.placeholder = 'Vraag 1...';
         option2Input.placeholder = 'Vraag 2...';
+        showRareRoundHint(textInputs);
     } else if (mode === 'photo') {
         title.textContent = 'Foto Battle';
-        instruction.textContent = 'Upload twee fotos voor de strijd.';
+        instruction.textContent = currentSettings.isRareRound && currentSettings.rareRoundQuestion
+            ? `Upload twee fotos gebaseerd op: "${currentSettings.rareRoundQuestion}"`
+            : 'Upload twee fotos voor de strijd.';
         textInputs.style.display = 'none';
         photoInputs.style.display = 'flex';
+        showRareRoundHint(photoInputs);
     } else if (mode === 'vote-person') {
         title.textContent = 'Vote de Persoon';
-        instruction.textContent = 'Stel een vraag en laat anderen stemmen op wie er het beste bij past.';
+        instruction.textContent = currentSettings.isRareRound && currentSettings.rareRoundQuestion
+            ? `Stel een vraag gebaseerd op: "${currentSettings.rareRoundQuestion}"`
+            : 'Stel een vraag en laat anderen stemmen op wie er het beste bij past.';
         textInputs.style.display = 'none';
         photoInputs.style.display = 'none';
         if (votePersonInputs) votePersonInputs.style.display = 'block';
+        showRareRoundHint(votePersonInputs);
     }
 }
 
@@ -1176,6 +1240,20 @@ socket.on('waiting-for-vote', () => {
     votersProgressContainer.innerHTML = '';
 });
 
+// Receive live typing updates for vote-person
+socket.on('vote-person-typing-update', ({ question, creatorName }) => {
+    const waitingView = document.querySelector('#voter-waiting-view');
+    const waitingText = document.querySelector('#voter-waiting-view h2');
+    
+    if (waitingView && waitingView.classList.contains('active') && waitingText) {
+        if (question && question.trim()) {
+            waitingText.innerHTML = `<span>${creatorName || 'De speler'}</span> typt...<br><small style="color: var(--accent); font-size: 0.9rem; margin-top: 10px; display: block; font-style: italic;">"${question}"</small>`;
+        } else {
+            waitingText.innerHTML = `<span>${creatorName || 'De speler'}</span> maakt iets...`;
+        }
+    }
+});
+
 socket.on('update-vote-status', (statusList) => {
     if (votersProgressContainer) {
         votersProgressContainer.innerHTML = '';
@@ -1513,9 +1591,14 @@ if (isVotePerson) {
     let msg = winningChoice === 1 ? `De meerderheid koos: Optie 1` : `De meerderheid koos: Optie 2`;
     
     if (dilemma.type === 'question' && answers && answers.length > 0) {
-        msg = "Vragen beantwoord!";
+        // Show majority choice info
+        const majorityChoice = winningChoice === 1 ? dilemma.option1 : dilemma.option2;
+        const majorityVotes = winningChoice === 1 ? (votesByOption[1]?.length || 0) : (votesByOption[2]?.length || 0);
+        const totalVotes = (votesByOption[1]?.length || 0) + (votesByOption[2]?.length || 0);
+        
+        msg = `De meerderheid (${majorityVotes}/${totalVotes}) koos: "${majorityChoice}"`;
         answerDisplay.style.display = 'block';
-        playAnswerSlideshow(answers, dilemma, delay); // Pass delay to slideshow
+        playAnswerSlideshow(answers, dilemma, delay, votesByOption); // Pass delay and votes to slideshow
     } else {
         answerDisplay.style.display = 'none';
         // Use delay from server, or calculate if not provided
@@ -1528,31 +1611,44 @@ if (isVotePerson) {
 
     showView('result');
 });
-function playAnswerSlideshow(answers, dilemma, totalDelay) {
+function playAnswerSlideshow(answers, dilemma, totalDelay, votesByOption) {
     if (slideshowInterval) clearInterval(slideshowInterval);
     if (!answers || answers.length === 0) {
         return;
     }
 
+    // Sort answers: show majority choice first, then minority
+    const winningChoice = votesByOption && votesByOption[1] && votesByOption[2] 
+        ? (votesByOption[1].length >= votesByOption[2].length ? 1 : 2)
+        : 1;
+    
+    // Separate answers by choice
+    const majorityAnswers = answers.filter(a => a.choice === winningChoice);
+    const minorityAnswers = answers.filter(a => a.choice !== winningChoice);
+    
+    // Combine: majority first, then minority
+    const sortedAnswers = [...majorityAnswers, ...minorityAnswers];
+    
     // Calculate time per slide (10 seconds per answer + 2 seconds buffer, divided by number of answers)
-    const slideDuration = totalDelay ? Math.floor(totalDelay / answers.length) : 10000;
+    const slideDuration = totalDelay ? Math.floor(totalDelay / sortedAnswers.length) : 10000;
     
     let currentIndex = 0;
 
     const showAnswer = () => {
-        if (currentIndex >= answers.length) {
+        if (currentIndex >= sortedAnswers.length) {
             if (slideshowInterval) clearInterval(slideshowInterval);
             slideshowInterval = null;
             return;
         }
         
-        const a = answers[currentIndex];
+        const a = sortedAnswers[currentIndex];
         const questionText = (a.choice === 2) ? dilemma.option2 : dilemma.option1;
         
         let html = `
             <div class="slide-item">
                 <span class="slide-name">${a.name}</span>
-                <div class="slide-context">${questionText || 'Gekozen Vraag'}</div>
+                <div class="slide-choice-label">Koos: <strong>"${questionText || 'Gekozen Vraag'}"</strong></div>
+                <div class="slide-answer-label">Omdat:</div>
                 <div class="slide-answer">&ldquo;${a.text}&rdquo;</div>
             </div>
         `;
@@ -1673,6 +1769,32 @@ confirmModal.classList.remove('active');
 socket.emit('leave-room', currentRoom);
 resetGame();
 });
+
+// Changelog button
+const changelogBtn = document.getElementById('changelog-btn');
+const changelogModal = document.getElementById('changelog-modal');
+const changelogCloseBtn = document.getElementById('changelog-close-btn');
+
+if (changelogBtn && changelogModal) {
+    changelogBtn.addEventListener('click', () => {
+        changelogModal.classList.add('active');
+    });
+}
+
+if (changelogCloseBtn && changelogModal) {
+    changelogCloseBtn.addEventListener('click', () => {
+        changelogModal.classList.remove('active');
+    });
+}
+
+// Close changelog on backdrop click
+if (changelogModal) {
+    changelogModal.addEventListener('click', (e) => {
+        if (e.target === changelogModal) {
+            changelogModal.classList.remove('active');
+        }
+    });
+}
 socket.on('player-left', ({ name, remaining }) => {
     showAlert('Speler Vertrokken', `${name} heeft het spel verlaten.`);
     updatePlayerList(remaining);
