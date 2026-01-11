@@ -98,6 +98,14 @@
                         <input type="number" id="rare-round-frequency" min="3" max="20" value="5" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 8px; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); color: var(--text);">
                     </div>
                 </div>
+
+                <div class="setting-group">
+                    <label>Beurt Volgorde</label>
+                    <div class="toggle-row">
+                        <span>Willekeurige volgorde (geen zelfde speler 2x achter elkaar)</span>
+                        <div class="toggle-switch" id="random-turn-order-toggle" data-mode="random-turn-order"></div>
+                    </div>
+                </div>
             </div>
 
             <button id="create-confirm-btn" class="btn primary">Start Lobby</button>
@@ -203,25 +211,27 @@
 
                 <!-- Photo Inputs -->
                 <div id="photo-inputs" class="inputs photo-inputs" style="display: none;">
-                    <input type="text" id="photo-question-input" placeholder="Stel een vraag (bijv. 'Wie is lekkerder?')" style="margin-bottom: 15px;">
-                    <div class="photo-upload-box" id="photo-upload-1">
-                        <input type="file" accept="image/*" id="file-input-1" hidden>
-                        <div class="upload-placeholder">
-                            <i class="fas fa-plus"></i>
-                            <small>Foto 1</small>
+                    <input type="text" id="photo-question-input" placeholder="Stel een vraag (bijv. 'Wie is lekkerder?')" style="width: 100%; margin-bottom: 15px;">
+                    <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; align-items: center; justify-content: center; flex-wrap: wrap;">
+                        <div class="photo-upload-box" id="photo-upload-1">
+                            <input type="file" accept="image/*" id="file-input-1" hidden>
+                            <div class="upload-placeholder">
+                                <i class="fas fa-plus"></i>
+                                <small>Foto 1</small>
+                            </div>
+                            <img id="preview-1" class="preview-img" hidden>
+                            <button class="remove-photo-btn" data-target="1" hidden><i class="fas fa-times"></i></button>
                         </div>
-                        <img id="preview-1" class="preview-img" hidden>
-                        <button class="remove-photo-btn" data-target="1" hidden><i class="fas fa-times"></i></button>
-                    </div>
-                    <div class="vs">VS</div>
-                    <div class="photo-upload-box" id="photo-upload-2">
-                        <input type="file" accept="image/*" id="file-input-2" hidden>
-                        <div class="upload-placeholder">
-                            <i class="fas fa-plus"></i>
-                            <small>Foto 2</small>
+                        <div class="vs-small" style="margin: 0; flex-shrink: 0;">VS</div>
+                        <div class="photo-upload-box" id="photo-upload-2">
+                            <input type="file" accept="image/*" id="file-input-2" hidden>
+                            <div class="upload-placeholder">
+                                <i class="fas fa-plus"></i>
+                                <small>Foto 2</small>
+                            </div>
+                            <img id="preview-2" class="preview-img" hidden>
+                            <button class="remove-photo-btn" data-target="2" hidden><i class="fas fa-times"></i></button>
                         </div>
-                        <img id="preview-2" class="preview-img" hidden>
-                        <button class="remove-photo-btn" data-target="2" hidden><i class="fas fa-times"></i></button>
                     </div>
                 </div>
 

@@ -102,22 +102,44 @@ function finishRound(roomCode) {
     
     // Check if NEXT round should be a rare round (before incrementing turnIndex)
     room.round++;
-    const nextPlayerIndex = (room.turnIndex + 1) % room.players.length;
     
-    // Check if this should be a rare round
+    // Determine next player index - support random turn order
+    let nextPlayerIndex;
+    if (room.settings.randomTurnOrder && room.players.length > 1) {
+        // Random turn order: pick a random player, but not the same as last turn
+        const availableIndices = room.players
+            .map((_, idx) => idx)
+            .filter(idx => idx !== room.turnIndex); // Can't be current player
+        
+        if (availableIndices.length > 0) {
+            const randomIdx = Math.floor(Math.random() * availableIndices.length);
+            nextPlayerIndex = availableIndices[randomIdx];
+        } else {
+            // Fallback (shouldn't happen)
+            nextPlayerIndex = (room.turnIndex + 1) % room.players.length;
+        }
+    } else {
+        // Sequential turn order
+        nextPlayerIndex = (room.turnIndex + 1) % room.players.length;
+    }
+    
+    // Check if this should be a rare round - FIXED: Check AFTER incrementing totalRoundsCompleted
+    // The check should happen for the NEXT round, so we check if the CURRENT totalRoundsCompleted matches
     if (room.settings.rareRoundEnabled && 
         room.players.length >= 3 && 
         room.totalRoundsCompleted > 0 &&
-        (room.totalRoundsCompleted) % room.settings.rareRoundFrequency === 0) {
+        room.totalRoundsCompleted % room.settings.rareRoundFrequency === 0) {
         room.isRareRound = true;
         // Rare round: current player creates a general question, others create dilemmas
         // This will be handled in the new-round event
+        console.log(`Rare round triggered! Round ${room.round}, totalRoundsCompleted: ${room.totalRoundsCompleted}, frequency: ${room.settings.rareRoundFrequency}`);
     } else {
         room.isRareRound = false;
         room.rareRoundQuestion = null;
         room.rareRoundCreatorId = null;
     }
     
+    room.lastTurnIndex = room.turnIndex; // Track for next random selection
     room.turnIndex = nextPlayerIndex;
 
     setTimeout(() => {
@@ -128,7 +150,8 @@ function finishRound(roomCode) {
                 round: currentRoom.round,
                 settings: currentRoom.settings,
                 isRareRound: currentRoom.isRareRound || false,
-                rareRoundQuestion: currentRoom.rareRoundQuestion || null
+                rareRoundQuestion: currentRoom.rareRoundQuestion || null,
+                randomTurnOrder: currentRoom.settings.randomTurnOrder || false
             });
             
             // Start timer for new round if enabled
@@ -171,7 +194,7 @@ function broadcastVoteStatus(roomCode) {
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
-    socket.on('create-room', ({ playerName, maxPlayers, allowedModes, createTimerMinutes, maxRounds, rareRoundEnabled, rareRoundFrequency }) => {
+    socket.on('create-room', ({ playerName, maxPlayers, allowedModes, createTimerMinutes, maxRounds, rareRoundEnabled, rareRoundFrequency, randomTurnOrder }) => {
         if (!playerName || playerName.length > 12) return;
         
         const roomCode = generateRoomCode();
@@ -186,10 +209,12 @@ io.on('connection', (socket) => {
                 createTimerMinutes: createTimerMinutes || null, // null = infinite
                 maxRounds: maxRounds || null, // null = infinite, number = rounds per player
                 rareRoundEnabled: rareRoundEnabled || false,
-                rareRoundFrequency: rareRoundFrequency || 5 // Every X questions
+                rareRoundFrequency: rareRoundFrequency || 5, // Every X questions
+                randomTurnOrder: randomTurnOrder || false // Random turn order (no same player twice in a row)
             },
             started: false,
-            turnIndex: 0, 
+            turnIndex: 0,
+            lastTurnIndex: -1, // Track last turn index for random order
             dilemma: null,
             round: 1,
             votes: {},
@@ -360,7 +385,10 @@ io.on('connection', (socket) => {
                         io.to(roomCode).emit('new-round', {
                             turnId: nextRoom.players[nextRoom.turnIndex].id,
                             round: nextRoom.round,
-                            settings: nextRoom.settings
+                            settings: nextRoom.settings,
+                            isRareRound: nextRoom.isRareRound || false,
+                            rareRoundQuestion: nextRoom.rareRoundQuestion || null,
+                            randomTurnOrder: nextRoom.settings.randomTurnOrder || false
                         });
                     }
                 }, 2000);
@@ -371,6 +399,9 @@ io.on('connection', (socket) => {
     socket.on('submit-dilemma', ({ roomCode, option1, option2, type, question, isAutoSubmit }) => {
         const room = rooms[roomCode];
         if (room && room.players[room.turnIndex].id === socket.id) {
+            // NOTE: No maxRounds check - rounds are infinite by default
+            // User requested: "behou de lobby verwijder lobby nooit" - keep lobby forever
+            
             // Validate that enough is filled in
             if (type === 'photo') {
                 if (!option1 || !option2) {
@@ -525,7 +556,10 @@ function handleDisconnect(socket, roomCode) {
                     io.to(roomCode).emit('new-round', {
                         turnId: room.players[room.turnIndex].id,
                         round: room.round,
-                        settings: room.settings
+                        settings: room.settings,
+                        isRareRound: room.isRareRound || false,
+                        rareRoundQuestion: room.rareRoundQuestion || null,
+                        randomTurnOrder: room.settings.randomTurnOrder || false
                     });
                  }
              } else {
@@ -556,28 +590,29 @@ function handleDisconnect(socket, roomCode) {
     }
 }
 
-// Check for inactive players periodically (5 minutes timeout)
-setInterval(() => {
-    const now = Date.now();
-    const INACTIVE_TIMEOUT = 15 * 60 * 1000; // 15 minutes (was 5 minutes - increased to allow inactivity)
-    
-    for (const [roomCode, room] of Object.entries(rooms)) {
-        if (!room.playerLastActive) continue;
-        
-        for (const [playerId, lastActive] of Object.entries(room.playerLastActive)) {
-            if (now - lastActive > INACTIVE_TIMEOUT) {
-                // Player inactive for too long, find and remove them
-                const playerIndex = room.players.findIndex(p => p.id === playerId);
-                if (playerIndex !== -1) {
-                    const socket = io.sockets.sockets.get(playerId);
-                    if (socket) {
-                        handleDisconnect(socket, roomCode);
-                    }
-                }
-            }
-        }
-    }
-}, 60000); // Check every 60 seconds (was 30 seconds)
+// Check for inactive players periodically - DISABLED: Lobby should never be removed automatically
+// User requested: "behou de lobby verwijder lobby nooit NOOIT NAAR 30 min ofzo"
+// setInterval(() => {
+//     const now = Date.now();
+//     const INACTIVE_TIMEOUT = 15 * 60 * 1000; // 15 minutes (was 5 minutes - increased to allow inactivity)
+//     
+//     for (const [roomCode, room] of Object.entries(rooms)) {
+//         if (!room.playerLastActive) continue;
+//         
+//         for (const [playerId, lastActive] of Object.entries(room.playerLastActive)) {
+//             if (now - lastActive > INACTIVE_TIMEOUT) {
+//                 // Player inactive for too long, find and remove them
+//                 const playerIndex = room.players.findIndex(p => p.id === playerId);
+//                 if (playerIndex !== -1) {
+//                     const socket = io.sockets.sockets.get(playerId);
+//                     if (socket) {
+//                         handleDisconnect(socket, roomCode);
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }, 60000); // Check every 60 seconds (was 30 seconds)
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {

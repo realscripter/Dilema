@@ -194,9 +194,12 @@ document.querySelectorAll('.toggle-switch').forEach(toggle => {
             if (rareRoundSettings) {
                 rareRoundSettings.style.display = toggle.classList.contains('active') ? 'block' : 'none';
             }
+        } else if (toggle.id === 'random-turn-order-toggle') {
+            // Random turn order can be toggled independently
+            toggle.classList.toggle('active');
         } else {
             toggle.classList.toggle('active');
-            const active = document.querySelectorAll('.toggle-switch.active:not(#rare-round-toggle)');
+            const active = document.querySelectorAll('.toggle-switch.active:not(#rare-round-toggle):not(#random-turn-order-toggle)');
             if (active.length === 0) {
                 toggle.classList.add('active');
             }
@@ -248,6 +251,9 @@ createConfirmBtn.addEventListener('click', () => {
     const rareRoundToggle = document.getElementById('rare-round-toggle');
     const rareRoundEnabled = rareRoundToggle && rareRoundToggle.classList.contains('active');
     const rareRoundFrequency = rareRoundEnabled ? parseInt(document.getElementById('rare-round-frequency')?.value) || 5 : null;
+    
+    const randomTurnOrderToggle = document.getElementById('random-turn-order-toggle');
+    const randomTurnOrder = randomTurnOrderToggle && randomTurnOrderToggle.classList.contains('active');
 
     createConfirmBtn.disabled = true; 
     createConfirmBtn.textContent = 'Bezig...';
@@ -261,7 +267,8 @@ createConfirmBtn.addEventListener('click', () => {
         createTimerMinutes: timerMinutes,
         maxRounds: null, // Always infinite
         rareRoundEnabled: rareRoundEnabled,
-        rareRoundFrequency: rareRoundFrequency
+        rareRoundFrequency: rareRoundFrequency,
+        randomTurnOrder: randomTurnOrder || false
     });
     
     setTimeout(() => {
@@ -465,6 +472,9 @@ function handleTurn(newTurnId) {
     document.getElementById('preview-1').hidden = true;
     document.getElementById('preview-2').hidden = true;
     document.querySelectorAll('.remove-photo-btn').forEach(b => b.hidden = true);
+    // Remove visual indicators
+    document.getElementById('photo-upload-1')?.classList.remove('has-image');
+    document.getElementById('photo-upload-2')?.classList.remove('has-image');
     const photoQuestionInput = document.getElementById('photo-question-input');
     if (photoQuestionInput) photoQuestionInput.value = '';
     const votePersonQuestionInput = document.getElementById('vote-person-question-input');
@@ -867,6 +877,12 @@ function cropImage() {
         removeBtn.hidden = false;
     }
     
+    // Add visual indicator that image is uploaded
+    const uploadBox = document.getElementById(`photo-upload-${num}`);
+    if (uploadBox) {
+        uploadBox.classList.add('has-image');
+    }
+    
     closeCropModal();
 }
 
@@ -1103,6 +1119,12 @@ document.querySelectorAll('.remove-photo-btn').forEach(btn => {
         document.getElementById(`preview-${num}`).hidden = true;
         document.getElementById(`file-input-${num}`).value = '';
         btn.hidden = true;
+        
+        // Remove visual indicator
+        const uploadBox = document.getElementById(`photo-upload-${num}`);
+        if (uploadBox) {
+            uploadBox.classList.remove('has-image');
+        }
     });
 });
 submitDilemmaBtn.addEventListener('click', () => {
