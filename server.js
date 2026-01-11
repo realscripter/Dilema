@@ -568,16 +568,32 @@ io.on('connection', (socket) => {
             
             if (room.settings.aiFilterEnabled && room.settings.aiApiKey) {
                 try {
-                    if (type === 'vote-person' && question) {
-                        const aiCheck = await checkWithAI(question, room.settings.aiApiKey);
-                        if (!aiCheck.isClean) {
-                            socket.emit('error', 'Je bericht bevat ongepast taalgebruik. Pas het aan.');
-                            return;
+                    if (type === 'photo') {
+                        // Skip filtering image data URLs, only filter question if present
+                        if (question) {
+                            const aiCheck = await checkWithAI(question, room.settings.aiApiKey);
+                            if (!aiCheck.isClean) {
+                                socket.emit('error', 'Je vraag bevat ongepast taalgebruik. Pas het aan.');
+                                return;
+                            }
+                            finalQuestion = aiCheck.filteredText;
                         }
-                        finalQuestion = aiCheck.filteredText;
+                    } else if (type === 'vote-person') {
+                        if (question) {
+                            const aiCheck = await checkWithAI(question, room.settings.aiApiKey);
+                            if (!aiCheck.isClean) {
+                                socket.emit('error', 'Je vraag bevat ongepast taalgebruik. Pas het aan.');
+                                return;
+                            }
+                            finalQuestion = aiCheck.filteredText;
+                        }
                     } else if (option1 && option2) {
-                        const check1 = await checkWithAI(option1, room.settings.aiApiKey);
-                        const check2 = await checkWithAI(option2, room.settings.aiApiKey);
+                        // dilemma or question mode - filter options in parallel
+                        const [check1, check2] = await Promise.all([
+                            checkWithAI(option1, room.settings.aiApiKey),
+                            checkWithAI(option2, room.settings.aiApiKey)
+                        ]);
+                        
                         if (!check1.isClean || !check2.isClean) {
                             socket.emit('error', 'Je bericht bevat ongepast taalgebruik. Pas het aan.');
                             return;

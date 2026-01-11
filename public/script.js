@@ -525,6 +525,13 @@ function handleTurn(newTurnId) {
     
     selectedVotePerson = null;
     
+    // Reset submit button state
+    const submitBtn = document.getElementById('submit-dilemma-btn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Verstuur';
+    }
+    
     // Check for rare round
     if (currentSettings.isRareRound && currentSettings.rareRoundQuestion) {
         // Rare round: show question and let current player create dilemma based on it
