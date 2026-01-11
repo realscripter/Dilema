@@ -113,15 +113,24 @@
                 </div>
 
                 <div class="setting-group">
-                    <label>AI Anti-Scheldwoorden (Experimenteel)</label>
+                    <label>AI Anti-Scheldwoorden <span class="beta-badge">Beta</span></label>
                     <div class="toggle-row">
                         <span>Activeer AI filtering met ll7m.io API</span>
                         <div class="toggle-switch" id="ai-filter-toggle" data-mode="ai-filter"></div>
                     </div>
-                    <div id="ai-filter-settings" style="display: none; margin-top: 10px;">
+                    <div id="ai-filter-settings" style="display: none; margin-top: 10px; background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
                         <label style="font-size: 0.9rem; color: #a4b0be;">API Key (llm7.io):</label>
                         <input type="text" id="ai-api-key" placeholder="Voer je llm7.io API key in (token.llm7.io)" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 8px; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); color: var(--text);">
-                        <small style="color: #747d8c; font-size: 0.8rem; display: block; margin-top: 5px;">Experimentele feature - Gebruikt keyword filtering als fallback. Haal gratis token op: <a href="https://token.llm7.io" target="_blank" style="color: var(--accent);">token.llm7.io</a></small>
+                        <small style="color: #747d8c; font-size: 0.8rem; display: block; margin-top: 5px;">Haal gratis token op: <a href="https://token.llm7.io" target="_blank" style="color: var(--accent);">token.llm7.io</a></small>
+                        
+                        <div class="ai-tos-container" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <div style="display: flex; gap: 10px; align-items: flex-start;">
+                                <input type="checkbox" id="ai-tos-checkbox" style="margin-top: 4px; cursor: pointer;">
+                                <label for="ai-tos-checkbox" style="font-size: 0.8rem; line-height: 1.4; color: #a4b0be; cursor: pointer;">
+                                    Ik begrijp dat de AI (Beta) fouten kan maken, onbedoeld woorden kan doorlaten of juist onterecht kan blokkeren. Gebruik op eigen risico.
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

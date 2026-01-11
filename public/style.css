@@ -538,6 +538,19 @@ textarea {
     font-weight: 800;
 }
 
+.beta-badge {
+    background: var(--accent);
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 800;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
 /* Room Code Hero Display */
 .waiting-header {
     margin-bottom: 1.5rem;

@@ -264,6 +264,13 @@ createConfirmBtn.addEventListener('click', () => {
     const aiFilterToggle = document.getElementById('ai-filter-toggle');
     const aiFilterEnabled = aiFilterToggle && aiFilterToggle.classList.contains('active');
     const aiApiKey = aiFilterEnabled ? document.getElementById('ai-api-key')?.value?.trim() : null;
+    const aiTosCheckbox = document.getElementById('ai-tos-checkbox');
+    const aiTosAccepted = aiTosCheckbox && aiTosCheckbox.checked;
+
+    if (aiFilterEnabled && !aiTosAccepted) {
+        showAlert('AI Voorwaarden', 'Je moet de voorwaarden voor het gebruik van de AI (Beta) accepteren om verder te gaan.');
+        return;
+    }
 
     createConfirmBtn.disabled = true; 
     createConfirmBtn.textContent = 'Bezig...';
@@ -732,6 +739,20 @@ function setCreatorMode(mode) {
     const photoInputs = document.getElementById('photo-inputs');
     const votePersonInputs = document.getElementById('vote-person-inputs');
     
+    // Clear inputs when switching mode to prevent "carrying over" inappropriate content
+    option1Input.value = '';
+    option2Input.value = '';
+    const photoQuestionInput = document.getElementById('photo-question-input');
+    if (photoQuestionInput) photoQuestionInput.value = '';
+    const votePersonQuestionInput = document.getElementById('vote-person-question-input');
+    if (votePersonQuestionInput) votePersonQuestionInput.value = '';
+    photoData = { 1: null, 2: null };
+    document.getElementById('preview-1').hidden = true;
+    document.getElementById('preview-2').hidden = true;
+    document.querySelectorAll('.remove-photo-btn').forEach(b => b.hidden = true);
+    document.getElementById('photo-upload-1')?.classList.remove('has-image');
+    document.getElementById('photo-upload-2')?.classList.remove('has-image');
+
     textInputs.style.display = 'block';
     photoInputs.style.display = 'none';
     if (votePersonInputs) votePersonInputs.style.display = 'none';
