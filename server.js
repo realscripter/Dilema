@@ -185,7 +185,9 @@ function finishRound(roomCode) {
         }
     });
 
-    const winningChoice = votesByOption[1].length >= votesByOption[2].length ? 1 : 2;
+    const votes1Count = votesByOption[1].length;
+    const votes2Count = votesByOption[2].length;
+    const winningChoice = votes1Count === votes2Count ? 0 : (votes1Count > votes2Count ? 1 : 2);
 
     // Calculate delay based on type and number of players
     let delay;

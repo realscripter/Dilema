@@ -10,57 +10,26 @@
 </head>
 <body>
     <div id="app">
+        <!-- Brand Header -->
+        <div style="text-align: center; padding: 10px 0; font-size: 0.8rem; color: rgba(255,255,255,0.3); letter-spacing: 2px; font-weight: 600;">ROYALISTIQQUIZ.NL</div>
+
         <!-- Landing Screen -->
-        <div id="landing-screen" class="screen active">
-            <h1>DILEMMA</h1>
+        <div id="landing-screen" class="screen active" style="justify-content: center;">
+            <div style="margin-bottom: 2rem;">
+                <h1 style="margin-bottom: 0.5rem;">DILEMMA</h1>
+                <p style="color: #a4b0be; font-weight: 600; font-size: 0.9rem; letter-spacing: 1px;">THE PARTY GAME</p>
+            </div>
             
             <div class="name-container">
-                <input type="text" id="username-input" placeholder="JOUW NAAM" maxlength="12">
+                <input type="text" id="username-input" placeholder="JOUW NAAM" maxlength="12" style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);">
             </div>
 
-            <p class="landing-text">Maak of join een party</p>
             <div class="actions">
                 <button id="create-init-btn" class="btn primary">Maak Party</button>
-                <div class="divider">OF</div>
+                <div class="divider" style="margin: 15px 0; color: rgba(255,255,255,0.2);">OF</div>
                 <div class="join-container">
-                    <input type="text" id="room-code-input" placeholder="CODE" maxlength="6">
+                    <input type="text" id="room-code-input" placeholder="CODE" maxlength="6" style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);">
                     <button id="join-btn" class="btn secondary">Join</button>
-                </div>
-            </div>
-            
-            <button id="changelog-btn" class="btn small" style="margin-top: 20px; background: var(--secondary); color: var(--text); padding: 10px 20px; font-size: 0.9rem;">📋 Changelog</button>
-        </div>
-
-        <!-- Changelog Modal -->
-        <div id="changelog-modal" class="modal">
-            <div class="modal-content" style="max-height: 80vh; overflow-y: auto;">
-                <h3>📋 Changelog</h3>
-                <div id="changelog-content" style="text-align: left; margin-top: 20px;">
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="color: var(--primary); margin-bottom: 10px;">Versie 2.0 - Huidige Update</h4>
-                        <ul style="list-style: none; padding: 0;">
-                            <li style="margin-bottom: 8px;">✅ Verbeterde vraag display: toont nu "(Naam) Koos: (optie) omdat: (reden)"</li>
-                            <li style="margin-bottom: 8px;">✅ Meerderheid wordt nu bovenaan getoond</li>
-                            <li style="margin-bottom: 8px;">✅ Vote de Persoon: live typing updates voor alle spelers</li>
-                            <li style="margin-bottom: 8px;">✅ Speciale ronde (rare round) verbeteringen</li>
-                            <li style="margin-bottom: 8px;">✅ AI Anti-Scheldwoorden modus toegevoegd (experimenteel, ll7m.io)</li>
-                            <li style="margin-bottom: 8px;">✅ Willekeurige beurtvolgorde optie</li>
-                            <li style="margin-bottom: 8px;">✅ Lobby timeout verwijderd - lobby blijft voor altijd actief</li>
-                            <li style="margin-bottom: 8px;">✅ Crop modal verbeteringen voor mobile</li>
-                            <li style="margin-bottom: 8px;">✅ Foto selectie toont vierkant naast elkaar</li>
-                        </ul>
-                    </div>
-                    <div style="margin-bottom: 20px;">
-                        <h4 style="color: var(--accent); margin-bottom: 10px;">Versie 1.0 - Laatste Fixes</h4>
-                        <ul style="list-style: none; padding: 0;">
-                            <li style="margin-bottom: 8px;">✅ Bug fixes voor rare rounds</li>
-                            <li style="margin-bottom: 8px;">✅ Max rondes fix</li>
-                            <li style="margin-bottom: 8px;">✅ Polish verbeteringen</li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button id="changelog-close-btn" class="btn primary">Sluiten</button>
                 </div>
             </div>
         </div>

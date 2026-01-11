@@ -469,6 +469,10 @@ socket.on('error', (msg) => {
     joinBtn.textContent = 'Join';
     createConfirmBtn.disabled = false;
     createConfirmBtn.textContent = 'Start Lobby';
+    
+    // Also reset dilemma submit button if error occurs (e.g. AI filter rejected it)
+    submitDilemmaBtn.disabled = false;
+    submitDilemmaBtn.textContent = 'Verstuur';
 });
 
 // Game Start
@@ -1231,6 +1235,13 @@ submitDilemmaBtn.addEventListener('click', () => {
     }
 
     payload.isAutoSubmit = false;
+    
+    // Show loading state if AI filter might be active
+    if (currentSettings.aiFilterEnabled) {
+        submitDilemmaBtn.disabled = true;
+        submitDilemmaBtn.textContent = 'Bezig met controleren...';
+    }
+    
     socket.emit('submit-dilemma', payload);
 });
 
@@ -1437,6 +1448,8 @@ socket.on('vote-result', ({ winningChoice, votesByOption, dilemma, answers, vote
     const votes2 = votesByOption[2]?.length || 0;
     const percentage1 = totalVotes > 0 ? Math.round((votes1 / totalVotes) * 100) : 0;
     const percentage2 = totalVotes > 0 ? Math.round((votes2 / totalVotes) * 100) : 0;
+    
+    const isTie = winningChoice === 0 && totalVotes > 0;
 
 const votePersonResultsDiv = document.getElementById('vote-person-results');
 if (votePersonResultsDiv) votePersonResultsDiv.style.display = 'none';
@@ -1508,11 +1521,16 @@ if (isVotePerson) {
     photoCard1.className = 'result-card photo-card';
     photoCard2.className = 'result-card photo-card';
     
-    if (winningChoice === 1) photoCard1.classList.add('selected');
-    else photoCard1.classList.add('not-selected');
-    
-    if (winningChoice === 2) photoCard2.classList.add('selected');
-    else photoCard2.classList.add('not-selected');
+    if (isTie) {
+        photoCard1.classList.add('selected');
+        photoCard2.classList.add('selected');
+    } else {
+        if (winningChoice === 1) photoCard1.classList.add('selected');
+        else photoCard1.classList.add('not-selected');
+        
+        if (winningChoice === 2) photoCard2.classList.add('selected');
+        else photoCard2.classList.add('not-selected');
+    }
 
         const ol1 = document.querySelector('#result-photo-1 .overlay-stats');
         const ol2 = document.querySelector('#result-photo-2 .overlay-stats');
@@ -1582,13 +1600,18 @@ if (isVotePerson) {
     r2.className = 'result-card';
     void r1.offsetWidth;
 
-    if (winningChoice === 1) r1.classList.add('selected');
-    else r1.classList.add('not-selected');
+    if (isTie) {
+        r1.classList.add('selected');
+        r2.classList.add('selected');
+    } else {
+        if (winningChoice === 1) r1.classList.add('selected');
+        else r1.classList.add('not-selected');
+        
+        if (winningChoice === 2) r2.classList.add('selected');
+        else r2.classList.add('not-selected');
+    }
     
-    if (winningChoice === 2) r2.classList.add('selected');
-    else r2.classList.add('not-selected');
-    
-    let msg = winningChoice === 1 ? `De meerderheid koos: Optie 1` : `De meerderheid koos: Optie 2`;
+    let msg = isTie ? 'Gelijkspel! Iedereen is het oneens.' : (winningChoice === 1 ? `De meerderheid koos: Optie 1` : `De meerderheid koos: Optie 2`);
     
     if (dilemma.type === 'question' && answers && answers.length > 0) {
         // Show majority choice info
@@ -1770,31 +1793,6 @@ socket.emit('leave-room', currentRoom);
 resetGame();
 });
 
-// Changelog button
-const changelogBtn = document.getElementById('changelog-btn');
-const changelogModal = document.getElementById('changelog-modal');
-const changelogCloseBtn = document.getElementById('changelog-close-btn');
-
-if (changelogBtn && changelogModal) {
-    changelogBtn.addEventListener('click', () => {
-        changelogModal.classList.add('active');
-    });
-}
-
-if (changelogCloseBtn && changelogModal) {
-    changelogCloseBtn.addEventListener('click', () => {
-        changelogModal.classList.remove('active');
-    });
-}
-
-// Close changelog on backdrop click
-if (changelogModal) {
-    changelogModal.addEventListener('click', (e) => {
-        if (e.target === changelogModal) {
-            changelogModal.classList.remove('active');
-        }
-    });
-}
 socket.on('player-left', ({ name, remaining }) => {
     showAlert('Speler Vertrokken', `${name} heeft het spel verlaten.`);
     updatePlayerList(remaining);
