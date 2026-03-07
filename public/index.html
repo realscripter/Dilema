@@ -3,33 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Dilemma - Het ultieme party game. Maak dilemmas, stem, en daag je vrienden uit!">
+    <meta name="theme-color" content="#1a1a2e">
     <title>Dilemma Spel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="app">
-        <!-- Brand Header -->
-        <div style="text-align: center; padding: 10px 0; font-size: 0.8rem; color: rgba(255,255,255,0.3); letter-spacing: 2px; font-weight: 600;">ROYALISTIQQUIZ.NL</div>
+        <div class="brand-header">DILEMMA</div>
 
         <!-- Landing Screen -->
-        <div id="landing-screen" class="screen active" style="justify-content: center;">
-            <div style="margin-bottom: 2rem;">
-                <h1 style="margin-bottom: 0.5rem;">DILEMMA</h1>
-                <p style="color: #a4b0be; font-weight: 600; font-size: 0.9rem; letter-spacing: 1px;">THE PARTY GAME</p>
+        <div id="landing-screen" class="screen active">
+            <div class="landing-top">
+                <h1>DILEMMA</h1>
+                <p class="subtitle">THE PARTY GAME</p>
             </div>
             
-            <div class="name-container">
-                <input type="text" id="username-input" placeholder="JOUW NAAM" maxlength="12" style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);">
-            </div>
+            <div class="landing-form">
+                <div class="name-container">
+                    <div class="avatar-name-row">
+                        <button id="avatar-picker-btn" class="avatar-picker-btn" title="Kies je avatar">😎</button>
+                        <input type="text" id="username-input" class="input-field" placeholder="Jouw naam" maxlength="12" autocomplete="off">
+                    </div>
+                    <button id="stats-btn" class="btn small text-btn stats-link">📊 Mijn Statistieken</button>
+                </div>
 
-            <div class="actions">
-                <button id="create-init-btn" class="btn primary">Maak Party</button>
-                <div class="divider" style="margin: 15px 0; color: rgba(255,255,255,0.2);">OF</div>
-                <div class="join-container">
-                    <input type="text" id="room-code-input" placeholder="CODE" maxlength="6" style="background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1);">
-                    <button id="join-btn" class="btn secondary">Join</button>
+                <div class="actions">
+                    <button id="create-init-btn" class="btn primary">Maak Party</button>
+                    <div class="divider"><span>of</span></div>
+                    <div class="join-container">
+                        <input type="text" id="room-code-input" class="input-field code-input" placeholder="CODE" maxlength="6" autocomplete="off">
+                        <button id="join-btn" class="btn secondary">Join</button>
+                    </div>
+                    <button id="browse-rooms-btn" class="btn secondary browse-btn">🔍 Zoek Open Kamers</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avatar Picker Modal -->
+        <div id="avatar-modal" class="modal">
+            <div class="modal-content avatar-modal-content">
+                <h3>Kies je Avatar</h3>
+                <div id="avatar-grid" class="avatar-grid"></div>
+                <button id="close-avatar-modal" class="btn secondary">Sluiten</button>
+            </div>
+        </div>
+
+        <!-- Player Stats Modal -->
+        <div id="stats-modal" class="modal">
+            <div class="modal-content stats-modal-content">
+                <h3>📊 Jouw Statistieken</h3>
+                <div id="stats-content" class="stats-content">
+                    <div class="stats-loading">Laden...</div>
+                </div>
+                <button id="close-stats-modal" class="btn secondary">Sluiten</button>
+            </div>
+        </div>
+
+        <!-- Room Browser Modal -->
+        <div id="room-browser-modal" class="modal">
+            <div class="modal-content room-browser-content">
+                <h3>🔍 Open Kamers</h3>
+                <div id="room-browser-list" class="room-browser-list">
+                    <div class="room-browser-loading">Zoeken naar kamers...</div>
+                </div>
+                <div class="room-browser-actions">
+                    <button id="refresh-rooms-btn" class="btn secondary small">🔄 Vernieuwen</button>
+                    <button id="close-room-browser" class="btn secondary small">Sluiten</button>
                 </div>
             </div>
         </div>
@@ -37,8 +80,9 @@
         <!-- Create Settings Screen -->
         <div id="settings-screen" class="screen">
             <div class="header">
-                <button id="back-settings-btn" class="btn small icon-btn"><i class="fas fa-arrow-left"></i></button>
-                <h2>Party Settings</h2>
+                <button id="back-settings-btn" class="btn small text-btn">Terug</button>
+                <h2>Instellingen</h2>
+                <div class="header-spacer"></div>
             </div>
             
             <div class="settings-content">
@@ -56,8 +100,16 @@
                 </div>
 
                 <div class="setting-group">
+                    <label>Zichtbaarheid</label>
+                    <div class="toggle-row">
+                        <span>Openbare kamer (zichtbaar in lobby)</span>
+                        <div class="toggle-switch" id="public-room-toggle" data-mode="public-room"></div>
+                    </div>
+                    <small class="setting-hint">Andere spelers kunnen je kamer vinden via de lobby browser</small>
+                </div>
+
+                <div class="setting-group">
                     <label>Spelmodus</label>
-                    <!-- Mode toggles will allow enabling specific modes -->
                     <div class="toggle-options vertical" id="mode-settings-list">
                         <div class="toggle-row">
                             <span>Dilemma's</span>
@@ -74,6 +126,10 @@
                         <div class="toggle-row">
                             <span>Vote de Persoon</span>
                             <div class="toggle-switch" data-mode="vote-person"></div>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Zou Je Liever</span>
+                            <div class="toggle-switch" data-mode="would-you-rather"></div>
                         </div>
                     </div>
                 </div>
@@ -93,21 +149,81 @@
                 </div>
 
                 <div class="setting-group">
+                    <label>Categorieën</label>
+                    <div class="toggle-options vertical" id="category-options">
+                        <div class="toggle-row">
+                            <span>😂 Grappig</span>
+                            <div class="toggle-switch" data-category="grappig"></div>
+                        </div>
+                        <div class="toggle-row">
+                            <span>🤔 Serieus</span>
+                            <div class="toggle-switch" data-category="serieus"></div>
+                        </div>
+                        <div class="toggle-row">
+                            <span>🌑 Dark</span>
+                            <div class="toggle-switch" data-category="dark"></div>
+                        </div>
+                        <div class="toggle-row">
+                            <span>🎲 Random</span>
+                            <div class="toggle-switch" data-category="random"></div>
+                        </div>
+                    </div>
+                    <small class="setting-hint">Selecteer categorieën voor Zou Je Liever & Tournament</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>Vote Timer <span class="beta-badge">Nieuw</span></label>
+                    <div class="toggle-row">
+                        <span>Tijdslimiet om te stemmen</span>
+                        <div class="toggle-switch" id="timed-mode-toggle" data-mode="timed-mode"></div>
+                    </div>
+                    <div id="timed-mode-settings" class="sub-settings" hidden>
+                        <label class="setting-sublabel">Seconden per stem:</label>
+                        <select id="timed-mode-seconds" class="timer-select">
+                            <option value="10">10 seconden</option>
+                            <option value="15" selected>15 seconden</option>
+                            <option value="20">20 seconden</option>
+                            <option value="30">30 seconden</option>
+                            <option value="45">45 seconden</option>
+                            <option value="60">60 seconden</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="setting-group">
+                    <label>Tournament Mode <span class="beta-badge">Nieuw</span></label>
+                    <div class="toggle-row">
+                        <span>Bracket modus inschakelen</span>
+                        <div class="toggle-switch" id="tournament-toggle" data-mode="tournament-mode"></div>
+                    </div>
+                    <small class="setting-hint">Dilemma's strijden tegen elkaar in een bracket</small>
+                </div>
+
+                <div class="setting-group">
+                    <label>Scoreboard <span class="beta-badge">Nieuw</span></label>
+                    <div class="toggle-row">
+                        <span>Punten bijhouden</span>
+                        <div class="toggle-switch" id="scoreboard-toggle" data-mode="scoreboard-mode"></div>
+                    </div>
+                    <small class="setting-hint">Snelste stem = meer punten. Unieke keuze = bonus!</small>
+                </div>
+
+                <div class="setting-group">
                     <label>Zeldzame Ronde Modus</label>
                     <div class="toggle-row">
                         <span>Zeldzame rondes inschakelen</span>
                         <div class="toggle-switch" id="rare-round-toggle" data-mode="rare-round"></div>
                     </div>
-                    <div id="rare-round-settings" style="display: none; margin-top: 10px;">
-                        <label style="font-size: 0.9rem; color: #a4b0be;">Zeldzaamheid (elke X vragen):</label>
-                        <input type="number" id="rare-round-frequency" min="3" max="20" value="5" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 8px; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); color: var(--text);">
+                    <div id="rare-round-settings" class="sub-settings" hidden>
+                        <label class="setting-sublabel">Zeldzaamheid (elke X vragen):</label>
+                        <input type="number" id="rare-round-frequency" class="setting-input" min="3" max="20" value="5">
                     </div>
                 </div>
 
                 <div class="setting-group">
                     <label>Beurt Volgorde</label>
                     <div class="toggle-row">
-                        <span>Willekeurige volgorde (geen zelfde speler 2x achter elkaar)</span>
+                        <span>Willekeurige volgorde</span>
                         <div class="toggle-switch" id="random-turn-order-toggle" data-mode="random-turn-order"></div>
                     </div>
                 </div>
@@ -115,19 +231,19 @@
                 <div class="setting-group">
                     <label>AI Anti-Scheldwoorden <span class="beta-badge">Beta</span></label>
                     <div class="toggle-row">
-                        <span>Activeer AI filtering met ll7m.io API</span>
+                        <span>Activeer AI filtering</span>
                         <div class="toggle-switch" id="ai-filter-toggle" data-mode="ai-filter"></div>
                     </div>
-                    <div id="ai-filter-settings" style="display: none; margin-top: 10px; background: rgba(0, 0, 0, 0.2); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                        <label style="font-size: 0.9rem; color: #a4b0be;">API Key (llm7.io):</label>
-                        <input type="text" id="ai-api-key" placeholder="Voer je llm7.io API key in (token.llm7.io)" style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 8px; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.1); color: var(--text);">
-                        <small style="color: #747d8c; font-size: 0.8rem; display: block; margin-top: 5px;">Haal gratis token op: <a href="https://token.llm7.io" target="_blank" style="color: var(--accent);">token.llm7.io</a></small>
+                    <div id="ai-filter-settings" class="sub-settings ai-settings-panel" hidden>
+                        <label class="setting-sublabel">API Key (llm7.io):</label>
+                        <input type="text" id="ai-api-key" class="setting-input" placeholder="Voer je llm7.io API key in">
+                        <small class="setting-hint">Haal gratis token op: <a href="https://token.llm7.io" target="_blank" class="setting-link">token.llm7.io</a></small>
                         
-                        <div class="ai-tos-container" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
-                            <div style="display: flex; gap: 10px; align-items: flex-start;">
-                                <input type="checkbox" id="ai-tos-checkbox" style="margin-top: 4px; cursor: pointer;">
-                                <label for="ai-tos-checkbox" style="font-size: 0.8rem; line-height: 1.4; color: #a4b0be; cursor: pointer;">
-                                    Ik begrijp dat de AI (Beta) fouten kan maken, onbedoeld woorden kan doorlaten of juist onterecht kan blokkeren. Gebruik op eigen risico.
+                        <div class="ai-tos-container">
+                            <div class="ai-tos-row">
+                                <input type="checkbox" id="ai-tos-checkbox">
+                                <label for="ai-tos-checkbox" class="ai-tos-label">
+                                    Ik begrijp dat de AI (Beta) fouten kan maken. Gebruik op eigen risico.
                                 </label>
                             </div>
                         </div>
@@ -135,6 +251,7 @@
                 </div>
             </div>
 
+            <button id="custom-questions-btn" class="btn secondary">📝 Custom Vragen Beheren</button>
             <button id="create-confirm-btn" class="btn primary">Start Lobby</button>
         </div>
 
@@ -143,9 +260,12 @@
             <div class="header waiting-header">
                 <div class="room-code-in-header">
                     <div class="code-label-top">KAMER CODE</div>
-                    <div class="code-value-hero" id="room-code-display">ABCDEF</div>
+                    <div class="code-value-hero" id="room-code-display">000000</div>
                 </div>
-                <button id="leave-btn" class="btn small icon-btn"><i class="fas fa-times"></i></button>
+                <div class="waiting-header-actions">
+                    <button id="share-room-btn" class="btn small text-btn" title="Kopieer kamer link">📤 Deel</button>
+                    <button id="leave-btn" class="btn small text-btn danger-text">Verlaat</button>
+                </div>
             </div>
             
             <div class="content centered waiting-content">
@@ -155,15 +275,9 @@
                     <div id="player-count-indicator" class="count-badge">1 / 2</div>
                 </div>
                 
-                <div id="player-list" class="player-list">
-                    <!-- Players will be listed here -->
-                </div>
-                
-                <div class="lobby-settings-display" id="lobby-settings-display">
-                    <!-- Settings info will go here -->
-                </div>
-                
-                <button id="host-start-btn" class="btn primary" style="display: none; margin-top: 20px;">Start Nu Spelen</button>
+                <div id="player-list" class="player-list"></div>
+                <div class="lobby-settings-display" id="lobby-settings-display"></div>
+                <button id="host-start-btn" class="btn primary" hidden>Start Spelen</button>
             </div>
         </div>
 
@@ -173,48 +287,108 @@
                 <div class="room-info">
                     <span class="round-badge">Ronde <span id="round-display">1</span></span>
                 </div>
-                <div class="opponents-info" id="opponents-display">
-                    <!-- Names here -->
+                <div class="opponents-info" id="opponents-display"></div>
+                <span id="spectator-self-badge" class="spectator-self-badge" hidden>👁️ SPECTATOR</span>
+                <button id="chat-toggle-btn" class="btn small text-btn" title="Chat">💬</button>
+                <button id="emoji-toggle-btn" class="btn small text-btn" title="Emoji Reacties">😂</button>
+                <button id="history-toggle-btn" class="btn small text-btn" title="Geschiedenis">📊</button>
+                <button id="scoreboard-toggle-btn" class="btn small text-btn" title="Scoreboard">🏆</button>
+                <button id="share-game-btn" class="btn small text-btn" title="Deel kamer">📤</button>
+                <button id="leave-game-btn" class="btn small text-btn danger-text">Stop</button>
+            </div>
+
+            <!-- Connection Status Banner -->
+            <div id="connection-status" class="connection-status" hidden>
+                <span id="connection-status-text">Verbinding verbroken...</span>
+                <span id="connection-status-retry" class="connection-retry-text"></span>
+            </div>
+
+            <!-- Chat Panel -->
+            <div id="chat-panel" class="chat-panel" hidden>
+                <div class="chat-container">
+                    <div id="chat-messages" class="chat-messages"></div>
+                    <div class="chat-input-row">
+                        <input type="text" id="chat-input" class="chat-input" placeholder="Typ een bericht..." maxlength="300" autocomplete="off">
+                        <button id="chat-send-btn" class="btn small primary chat-send-btn">→</button>
+                    </div>
                 </div>
-                <button id="leave-game-btn" class="btn small icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+
+            <!-- Emoji Bar -->
+            <div id="emoji-bar" class="emoji-bar" hidden>
+                <button class="emoji-btn" data-emoji="😂">😂</button>
+                <button class="emoji-btn" data-emoji="😍">😍</button>
+                <button class="emoji-btn" data-emoji="🤯">🤯</button>
+                <button class="emoji-btn" data-emoji="😱">😱</button>
+                <button class="emoji-btn" data-emoji="🔥">🔥</button>
+                <button class="emoji-btn" data-emoji="💀">💀</button>
+                <button class="emoji-btn" data-emoji="👀">👀</button>
+                <button class="emoji-btn" data-emoji="🤮">🤮</button>
+                <button class="emoji-btn" data-emoji="😈">😈</button>
+                <button class="emoji-btn" data-emoji="🥶">🥶</button>
+                <button class="emoji-btn" data-emoji="👏">👏</button>
+                <button class="emoji-btn" data-emoji="💯">💯</button>
+            </div>
+
+            <!-- Scoreboard Panel (collapsible) -->
+            <div id="scoreboard-panel" class="scoreboard-panel" hidden>
+                <div id="scoreboard-container" class="scoreboard-container" hidden>
+                    <h3>🏆 Scoreboard</h3>
+                    <div id="scoreboard-list" class="scoreboard-list"></div>
+                </div>
+            </div>
+
+            <!-- Game History Panel (collapsible) -->
+            <div id="history-panel" class="history-panel" hidden>
+                <div class="history-container">
+                    <h3>📊 Spelgeschiedenis</h3>
+                    <div id="history-list" class="history-list"></div>
+                    <div class="history-actions">
+                        <button id="share-history-btn" class="btn secondary small">📤 Deel Resultaten</button>
+                    </div>
+                </div>
             </div>
             
-            <!-- Creator Choice View (Select Type) -->
+            <!-- Creator Choice View -->
             <div id="creator-choice-view" class="view">
                 <h2>Jouw Beurt!</h2>
-                <p>Wat wil je maken?</p>
-                
-                <div id="creator-targets-display" class="target-list">
-                    <!-- Will show "Voor: Alex, Tom..." -->
-                </div>
-
+                <p class="view-subtitle">Wat wil je maken?</p>
+                <div id="creator-targets-display" class="target-list"></div>
                 <div class="choice-buttons">
                     <button id="choice-dilemma-btn" class="btn choice-card">
-                        <span class="icon"><i class="fas fa-bolt"></i></span>
-                        <div class="text">
-                            <span>DILEMMA</span>
-                            <small>Kies tussen 2 opties</small>
+                        <div class="choice-card-content">
+                            <span class="choice-title">DILEMMA</span>
+                            <small class="choice-desc">Kies tussen 2 opties</small>
                         </div>
                     </button>
-                    <button id="choice-question-btn" class="btn choice-card secondary">
-                        <span class="icon"><i class="fas fa-question-circle"></i></span>
-                        <div class="text">
-                            <span>OPEN VRAAG</span>
-                            <small>Typ zelf een antwoord</small>
+                    <button id="choice-question-btn" class="btn choice-card">
+                        <div class="choice-card-content">
+                            <span class="choice-title">OPEN VRAAG</span>
+                            <small class="choice-desc">Typ zelf een antwoord</small>
                         </div>
                     </button>
-                    <button id="choice-photo-btn" class="btn choice-card accent">
-                        <span class="icon"><i class="fas fa-camera"></i></span>
-                        <div class="text">
-                            <span>FOTO</span>
-                            <small>Kies 2 fotos</small>
+                    <button id="choice-photo-btn" class="btn choice-card">
+                        <div class="choice-card-content">
+                            <span class="choice-title">FOTO</span>
+                            <small class="choice-desc">Kies 2 fotos</small>
                         </div>
                     </button>
-                    <button id="choice-vote-person-btn" class="btn choice-card vote-person">
-                        <span class="icon"><i class="fas fa-user-check"></i></span>
-                        <div class="text">
-                            <span>VOTE DE PERSOON</span>
-                            <small>Stel een vraag en stem op iemand</small>
+                    <button id="choice-vote-person-btn" class="btn choice-card">
+                        <div class="choice-card-content">
+                            <span class="choice-title">VOTE DE PERSOON</span>
+                            <small class="choice-desc">Stem op iemand</small>
+                        </div>
+                    </button>
+                    <button id="choice-wyr-btn" class="btn choice-card wyr-card" hidden>
+                        <div class="choice-card-content">
+                            <span class="choice-title">ZOU JE LIEVER</span>
+                            <small class="choice-desc">Klassieke "would you rather" vragen</small>
+                        </div>
+                    </button>
+                    <button id="choice-tournament-btn" class="btn choice-card tournament-card" hidden>
+                        <div class="choice-card-content">
+                            <span class="choice-title">🏆 TOURNAMENT</span>
+                            <small class="choice-desc">Bracket: dilemma's strijden tegen elkaar</small>
                         </div>
                     </button>
                 </div>
@@ -223,70 +397,93 @@
             <!-- Creator Input View -->
             <div id="creator-input-view" class="view">
                 <div class="input-header">
-                     <button id="back-choice-btn" class="btn small icon-btn"><i class="fas fa-arrow-left"></i></button>
+                     <button id="back-choice-btn" class="btn small text-btn">Terug</button>
                      <h2 id="input-title">Nieuw Dilemma</h2>
+                     <div class="header-spacer"></div>
                 </div>
+                <p id="instruction-text" class="view-subtitle">Verzin een lastig dilemma.</p>
                 
-                <p id="instruction-text">Verzin een lastig dilemma.</p>
-                
-                <!-- Text Inputs -->
                 <div id="text-inputs" class="inputs">
                     <textarea id="option1-input" placeholder="Optie 1..."></textarea>
                     <div class="vs">VS</div>
                     <textarea id="option2-input" placeholder="Optie 2..."></textarea>
                 </div>
 
-                <!-- Photo Inputs -->
-                <div id="photo-inputs" class="inputs photo-inputs" style="display: none;">
-                    <input type="text" id="photo-question-input" placeholder="Stel een vraag (bijv. 'Wie is lekkerder?')" style="width: 100%; margin-bottom: 15px;">
-                    <div style="display: flex; flex-direction: row; gap: 10px; width: 100%; align-items: center; justify-content: center; flex-wrap: wrap;">
+                <div id="photo-inputs" class="inputs photo-inputs" hidden>
+                    <input type="text" id="photo-question-input" class="input-field" placeholder="Stel een vraag (optioneel)">
+                    <div class="photo-inputs-row">
                         <div class="photo-upload-box" id="photo-upload-1">
                             <input type="file" accept="image/*" id="file-input-1" hidden>
                             <div class="upload-placeholder">
-                                <i class="fas fa-plus"></i>
+                                <span class="upload-plus">+</span>
                                 <small>Foto 1</small>
                             </div>
                             <img id="preview-1" class="preview-img" hidden>
-                            <button class="remove-photo-btn" data-target="1" hidden><i class="fas fa-times"></i></button>
+                            <button class="remove-photo-btn" data-target="1" hidden>x</button>
                         </div>
-                        <div class="vs-small" style="margin: 0; flex-shrink: 0;">VS</div>
+                        <div class="vs-small">VS</div>
                         <div class="photo-upload-box" id="photo-upload-2">
                             <input type="file" accept="image/*" id="file-input-2" hidden>
                             <div class="upload-placeholder">
-                                <i class="fas fa-plus"></i>
+                                <span class="upload-plus">+</span>
                                 <small>Foto 2</small>
                             </div>
                             <img id="preview-2" class="preview-img" hidden>
-                            <button class="remove-photo-btn" data-target="2" hidden><i class="fas fa-times"></i></button>
+                            <button class="remove-photo-btn" data-target="2" hidden>x</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Vote Person Input -->
-                <div id="vote-person-inputs" class="inputs" style="display: none;">
-                    <input type="text" id="vote-person-question-input" placeholder="Stel een vraag (bijv. 'Wie is het liefste?')">
+                <div id="vote-person-inputs" class="inputs" hidden>
+                    <input type="text" id="vote-person-question-input" class="input-field" placeholder="Stel een vraag (bijv. 'Wie is het liefste?')">
                 </div>
 
-                <div class="timer-display-container" id="timer-display-container" style="display: none;">
+                <div id="wyr-inputs" class="inputs wyr-creator" hidden>
+                    <div class="wyr-card-display">
+                        <div class="wyr-category-badge" id="wyr-category-display">💭 Laden...</div>
+                        <div class="wyr-option-card">
+                            <span class="wyr-label">Zou je liever...</span>
+                            <p id="wyr-option1-display" class="wyr-text">...</p>
+                        </div>
+                        <div class="vs">OF</div>
+                        <div class="wyr-option-card">
+                            <p id="wyr-option2-display" class="wyr-text">...</p>
+                        </div>
+                    </div>
+                    <button id="wyr-shuffle-btn" class="btn secondary wyr-shuffle">🔀 Andere Vraag</button>
+                </div>
+
+                <div class="timer-display-container" id="timer-display-container" hidden>
                     <div class="timer-display">
-                        <span id="timer-display-text">Tijd resterend: <span id="timer-value">∞</span></span>
+                        <span id="timer-display-text">Tijd resterend: <span id="timer-value"></span></span>
                     </div>
                 </div>
 
                 <button id="submit-dilemma-btn" class="btn primary">Verstuur</button>
             </div>
 
-            <!-- Voter View: Waiting for Dilemma -->
+            <!-- Voter Waiting View -->
             <div id="voter-waiting-view" class="view">
                 <div class="loader"></div>
                 <h2><span id="creator-name-display">De andere</span> maakt iets...</h2>
-                <div id="voters-progress-container" class="voters-progress">
-                    <!-- Chips of who answered will go here -->
-                </div>
+                <div id="voters-progress-container" class="voters-progress"></div>
             </div>
 
-            <!-- Voter View: Vote -->
+            <!-- Tournament View -->
+            <div id="tournament-view" class="view">
+                <h2>🏆 Tournament</h2>
+                <p class="view-subtitle">Dilemma's strijden tegen elkaar!</p>
+                <div id="tournament-bracket-display" class="tournament-bracket"></div>
+            </div>
+
+            <!-- Vote View -->
             <div id="vote-view" class="view">
+                <div id="vote-timer-container" class="vote-timer" hidden>
+                    <div class="vote-timer-bar-bg">
+                        <div id="vote-timer-bar" class="vote-timer-progress"></div>
+                    </div>
+                    <span id="vote-timer-text" class="vote-timer-text">15s</span>
+                </div>
                 <h2>KIES!</h2>
                 <div class="options" id="text-vote-options">
                     <button id="vote-option1" class="btn option-btn">Optie 1</button>
@@ -294,37 +491,41 @@
                     <button id="vote-option2" class="btn option-btn">Optie 2</button>
                 </div>
                 
-                <div class="options photo-options" id="photo-vote-options" style="display: none;">
+                <div class="options photo-options" id="photo-vote-options" hidden>
                     <div class="photo-option" id="vote-photo-1">
-                        <img id="vote-img-1" src="">
+                        <img id="vote-img-1" src="" alt="Foto 1">
                     </div>
                     <div class="vs-small">VS</div>
                     <div class="photo-option" id="vote-photo-2">
-                        <img id="vote-img-2" src="">
+                        <img id="vote-img-2" src="" alt="Foto 2">
                     </div>
                 </div>
             </div>
 
-            <!-- Voter View: Vote Person -->
+            <!-- Vote Person View -->
             <div id="vote-person-view" class="view">
+                <div id="vote-timer-container-vp" class="vote-timer" hidden>
+                    <div class="vote-timer-bar-bg">
+                        <div id="vote-timer-bar-vp" class="vote-timer-progress"></div>
+                    </div>
+                    <span id="vote-timer-text-vp" class="vote-timer-text">15s</span>
+                </div>
                 <h2 id="vote-person-question-title">Kies een persoon</h2>
-                <p style="text-align: center; color: #a4b0be; font-size: 0.9rem; margin-bottom: 15px;">
+                <p class="vote-person-info">
                     Iedereen kan stemmen, ook de vraagmaker. Je kunt niet op jezelf stemmen.
                 </p>
                 <div class="vote-person-list-container">
-                    <div id="vote-person-list" class="vote-person-list">
-                        <!-- Players will be listed here -->
-                    </div>
+                    <div id="vote-person-list" class="vote-person-list"></div>
                 </div>
             </div>
 
-            <!-- Voter View: Answer Question (Only for Question Mode) -->
+            <!-- Answer View -->
             <div id="answer-view" class="view">
                 <div class="back-header">
-                    <button id="back-vote-btn" class="btn small icon-btn"><i class="fas fa-arrow-left"></i></button>
+                    <button id="back-vote-btn" class="btn small text-btn">Terug</button>
                     <h2>Antwoord geven</h2>
+                    <div class="header-spacer"></div>
                 </div>
-                
                 <div class="selected-question-display">
                     <p id="selected-question-text"></p>
                 </div>
@@ -335,40 +536,26 @@
             <!-- Result View -->
             <div id="result-view" class="view">
                 <h2>Resultaat</h2>
-                
-                <!-- Text Results -->
                 <div class="result-box" id="text-results">
                     <div id="result-option1" class="result-card"></div>
                     <div id="result-option2" class="result-card"></div>
                 </div>
-
-                <!-- Photo Results -->
-                <div class="result-box photo-results" id="photo-results" style="display: none;">
+                <div class="result-box photo-results" id="photo-results" hidden>
                     <div id="result-photo-1" class="result-card photo-card">
-                        <img id="res-img-1" src="">
+                        <img id="res-img-1" src="" alt="Foto 1">
                         <div class="overlay-stats"></div>
                     </div>
                     <div id="result-photo-2" class="result-card photo-card">
-                        <img id="res-img-2" src="">
+                        <img id="res-img-2" src="" alt="Foto 2">
                         <div class="overlay-stats"></div>
                     </div>
                 </div>
-
                 <p id="result-message"></p>
-                
-                <!-- Answer Display for Question Mode -->
-                <div id="answer-display" class="answer-box" style="display: none;">
-                    <!-- Content injected by JS -->
-                </div>
-
-                <!-- Vote Person Results -->
-                <div id="vote-person-results" class="vote-person-results" style="display: none;">
+                <div id="answer-display" class="answer-box" hidden></div>
+                <div id="vote-person-results" class="vote-person-results" hidden>
                     <h3 id="vote-person-results-question"></h3>
-                    <div id="vote-person-results-list" class="vote-person-results-list">
-                        <!-- Results will be shown here -->
-                    </div>
+                    <div id="vote-person-results-list" class="vote-person-results-list"></div>
                 </div>
-
                 <div class="timer-container" id="result-timer-container">
                     <div class="timer-text-display">
                         <span id="timer-text">Volgende ronde over <span id="timer-seconds">0</span>s</span>
@@ -393,7 +580,7 @@
         </div>
     </div>
 
-    <!-- Alert Modal (Custom Alert) -->
+    <!-- Alert Modal -->
     <div id="alert-modal" class="modal">
         <div class="modal-content">
             <h3 id="alert-title">Melding</h3>
@@ -423,6 +610,31 @@
                 <button id="crop-cancel-btn" class="btn secondary">Annuleren</button>
                 <button id="crop-confirm-btn" class="btn primary">Bevestigen</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Emoji Float Container (full screen overlay for floating emojis) -->
+    <div id="emoji-float-container"></div>
+
+    <!-- Custom Questions Modal -->
+    <div id="custom-questions-modal" class="modal">
+        <div class="modal-content cq-modal-content">
+            <h3>📝 Custom Vragen</h3>
+            <div class="cq-add-form">
+                <input type="text" id="custom-q-option1" class="input-field" placeholder="Optie 1..." maxlength="200">
+                <div class="vs-small">VS</div>
+                <input type="text" id="custom-q-option2" class="input-field" placeholder="Optie 2..." maxlength="200">
+                <button id="add-custom-question" class="btn primary small">+ Toevoegen</button>
+            </div>
+            <div id="custom-questions-list" class="cq-list"></div>
+            <div class="cq-actions">
+                <button id="export-questions" class="btn secondary small">📤 Exporteren</button>
+                <button id="import-questions" class="btn secondary small">📥 Importeren</button>
+            </div>
+            <button id="close-custom-questions" class="btn secondary">Sluiten</button>
         </div>
     </div>
 
