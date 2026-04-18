@@ -88,6 +88,7 @@ body {
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     padding: 24px;
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 20px));
     scrollbar-width: thin;
     scrollbar-color: hsla(0, 0%, 100%, 0.1) transparent;
 }
@@ -222,7 +223,7 @@ input, textarea, .input-field {
     border-radius: var(--radius-md);
     padding: 16px 18px;
     color: var(--text);
-    font-size: 1rem;
+    font-size: 16px; /* 16px prevents iOS zoom on focus */
     margin-bottom: 0.75rem;
     transition: all var(--transition);
     box-shadow: var(--shadow-sm);

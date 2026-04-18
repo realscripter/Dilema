@@ -671,13 +671,7 @@ createConfirmBtn?.addEventListener('click', () => {
     const tournamentEnabled = $('tournament-toggle')?.classList.contains('active') || false;
     const scoreboardEnabled = $('scoreboard-toggle')?.classList.contains('active') || false;
 
-    const selectedCategories = [];
-    document.querySelectorAll('#category-options .toggle-switch.active').forEach(t => {
-        selectedCategories.push(t.dataset.category);
-    });
-
     const isPublic = $('public-room-toggle')?.classList.contains('active') || false;
-    const selectedAvatar = $('avatar-picker-btn')?.textContent.trim() || '😎';
 
     socket.emit('create-room', {
         playerName: name,
@@ -693,9 +687,8 @@ createConfirmBtn?.addEventListener('click', () => {
         timedModeSeconds,
         tournamentEnabled,
         scoreboardEnabled,
-        selectedCategories,
         isPublic,
-        avatar: selectedAvatar
+        avatar: '😎'
     });
 });
 
@@ -708,8 +701,7 @@ joinBtn?.addEventListener('click', () => {
     if (!name) return showAlert('Naam nodig', 'Vul eerst je naam in!');
     if (!code || code.length < 4) return showAlert('Code nodig', 'Vul de kamercode in!');
 
-    const selectedAvatar = $('avatar-picker-btn')?.textContent.trim() || '😎';
-    socket.emit('join-room', { roomCode: code, playerName: name, avatar: selectedAvatar });
+    socket.emit('join-room', { roomCode: code, playerName: name, avatar: '😎' });
 });
 
 // Enter key shortcuts
@@ -838,7 +830,6 @@ function updateLobbySettings(settings) {
     if (settings.timedModeEnabled) items.push(['Vote Timer', settings.timedModeSeconds + ' sec']);
     if (settings.tournamentEnabled) items.push(['Tournament', 'Aan']);
     if (settings.scoreboardEnabled) items.push(['Scoreboard', 'Aan']);
-    if (settings.selectedCategories?.length > 0) items.push(['Categorieën', settings.selectedCategories.join(', ')]);
     if (settings.isPublic) items.push(['Zichtbaarheid', '🌐 Openbaar']);
 
     items.forEach(([label, value]) => {
@@ -1109,10 +1100,7 @@ function setCreatorMode(mode) {
         if (wyrInputs) wyrInputs.hidden = false;
 
         // Request a question from server
-        const selectedCat = currentSettings.selectedCategories?.length > 0
-            ? currentSettings.selectedCategories[Math.floor(Math.random() * currentSettings.selectedCategories.length)]
-            : null;
-        socket.emit('request-wyr', { roomCode: currentRoom, category: selectedCat });
+        socket.emit('request-wyr', { roomCode: currentRoom, category: null });
     }
 }
 
@@ -2144,10 +2132,7 @@ socket.on('wyr-question', ({ option1, option2, category }) => {
 
 $('wyr-shuffle-btn')?.addEventListener('click', () => {
     if (!currentRoom) return;
-    const selectedCat = currentSettings.selectedCategories?.length > 0
-        ? currentSettings.selectedCategories[Math.floor(Math.random() * currentSettings.selectedCategories.length)]
-        : null;
-    socket.emit('request-wyr', { roomCode: currentRoom, category: selectedCat });
+    socket.emit('request-wyr', { roomCode: currentRoom, category: null });
     SFX.playVote();
 });
 
