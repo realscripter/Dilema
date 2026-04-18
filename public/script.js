@@ -313,33 +313,7 @@ const CustomQuestions = {
     }
 };
 
-// ─── Emoji Reactions ────────────────────────────────────────────────
-const EmojiReactions = {
-    emojis: ['😂', '😍', '🤯', '😱', '🔥', '💀', '👀', '🤮', '😈', '🥶', '👏', '💯'],
 
-    send(emoji) {
-        if (!currentRoom) return;
-        socket.emit('emoji-reaction', { roomCode: currentRoom, emoji });
-        // Also show locally
-        this.float(emoji, 'Jij');
-    },
-
-    float(emoji, playerName) {
-        const container = $('emoji-float-container');
-        if (!container) return;
-
-        const el = document.createElement('div');
-        el.className = 'emoji-float';
-        el.textContent = emoji;
-        el.style.left = (10 + Math.random() * 80) + '%';
-        el.style.animationDuration = (2 + Math.random() * 1.5) + 's';
-        el.style.fontSize = (1.5 + Math.random() * 1) + 'rem';
-        container.appendChild(el);
-
-        el.addEventListener('animationend', () => el.remove());
-        setTimeout(() => { if (el.parentNode) el.remove(); }, 5000);
-    }
-};
 
 // ─── Sound Effects: Additional ──────────────────────────────────────
 // Extend SFX with fanfare
@@ -560,10 +534,7 @@ socket.on('spectator-count', (count) => {
     updateSpectatorCount(count);
 });
 
-// ─── Emoji Reaction Received ────────────────────────────────────────
-socket.on('emoji-reaction', ({ emoji, playerName }) => {
-    EmojiReactions.float(emoji, playerName);
-});
+
 
 // ─── Game History Received ──────────────────────────────────────────
 socket.on('game-history', ({ history }) => {
@@ -813,10 +784,7 @@ function updatePlayerList(playersList) {
 
         const leftSide = document.createElement('span');
         leftSide.className = 'player-item-left';
-        const avatarSpan = document.createElement('span');
-        avatarSpan.className = 'player-avatar';
-        avatarSpan.textContent = p.avatar || '😎';
-        leftSide.appendChild(avatarSpan);
+
         const nameSpan = document.createElement('span');
         nameSpan.textContent = p.name;
         leftSide.appendChild(nameSpan);
@@ -2620,133 +2588,12 @@ function renderCustomQuestionsList() {
     });
 }
 
-// ─── Emoji Bar Toggle ───────────────────────────────────────────────
-$('emoji-toggle-btn')?.addEventListener('click', () => {
-    const bar = $('emoji-bar');
-    if (bar) bar.hidden = !bar.hidden;
-});
 
-// Setup emoji bar clicks
-document.querySelectorAll('.emoji-btn')?.forEach(btn => {
-    btn.addEventListener('click', () => {
-        EmojiReactions.send(btn.dataset.emoji);
-        Anim.pop(btn);
-    });
-});
 
-// ─── Avatar Picker ──────────────────────────────────────────────────
-const AVATAR_EMOJIS = [
-    '😎', '🤠', '👻', '🦊', '🐱', '🐶', '🦁', '🐸', '🐨', '🐼',
-    '🦄', '🐲', '🦋', '🌸', '⭐', '🔥', '💎', '🎭', '🎪', '🍄',
-    '🌈', '🎮', '🎯', '🎸', '🚀', '🌙', '🍀', '🎃', '🤖', '👽',
-    '🧙', '🦸', '🧛', '🧜', '🧚', '🎪', '🏆', '💀', '🎩', '🤡'
-];
 
-(function initAvatarPicker() {
-    const btn = $('avatar-picker-btn');
-    const modal = $('avatar-modal');
-    const grid = $('avatar-grid');
-    const closeBtn = $('close-avatar-modal');
-    if (!btn || !modal || !grid) return;
 
-    // Load saved avatar from localStorage
-    const savedAvatar = localStorage.getItem('dilemma_avatar');
-    if (savedAvatar) btn.textContent = savedAvatar;
 
-    btn.addEventListener('click', () => {
-        grid.innerHTML = '';
-        AVATAR_EMOJIS.forEach(emoji => {
-            const cell = document.createElement('button');
-            cell.className = 'avatar-grid-item';
-            if (btn.textContent.trim() === emoji) cell.classList.add('selected');
-            cell.textContent = emoji;
-            cell.addEventListener('click', () => {
-                btn.textContent = emoji;
-                localStorage.setItem('dilemma_avatar', emoji);
-                modal.classList.remove('active');
-                // Update avatar on server if in a room
-                if (currentRoom) {
-                    socket.emit('update-avatar', { roomCode: currentRoom, avatar: emoji });
-                }
-            });
-            grid.appendChild(cell);
-        });
-        modal.classList.add('active');
-    });
 
-    closeBtn?.addEventListener('click', () => modal.classList.remove('active'));
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('active');
-    });
-})();
-
-// ─── Player Stats (localStorage + server hybrid) ────────────────────
-const PlayerStats = {
-    KEY: 'dilemma_player_stats',
-
-    load() {
-        try {
-            const data = localStorage.getItem(this.KEY);
-            return data ? JSON.parse(data) : { wins: 0, losses: 0, gamesPlayed: 0, questionsCreated: 0, votesCast: 0 };
-        } catch { return { wins: 0, losses: 0, gamesPlayed: 0, questionsCreated: 0, votesCast: 0 }; }
-    },
-
-    save(stats) {
-        try { localStorage.setItem(this.KEY, JSON.stringify(stats)); } catch { /* quota */ }
-    },
-
-    merge(serverStats) {
-        // Use the higher value from server or local (server is source of truth for session)
-        const local = this.load();
-        const merged = {
-            wins: Math.max(local.wins, serverStats.wins || 0),
-            losses: Math.max(local.losses, serverStats.losses || 0),
-            gamesPlayed: Math.max(local.gamesPlayed, serverStats.gamesPlayed || 0),
-            questionsCreated: Math.max(local.questionsCreated, serverStats.questionsCreated || 0),
-            votesCast: Math.max(local.votesCast, serverStats.votesCast || 0)
-        };
-        this.save(merged);
-        return merged;
-    }
-};
-
-(function initStatsModal() {
-    const btn = $('stats-btn');
-    const modal = $('stats-modal');
-    const content = $('stats-content');
-    const closeBtn = $('close-stats-modal');
-    if (!btn || !modal || !content) return;
-
-    btn.addEventListener('click', () => {
-        // Request from server, then merge with local
-        socket.emit('request-stats');
-        content.innerHTML = '<div class="stats-loading">Laden...</div>';
-        modal.classList.add('active');
-    });
-
-    closeBtn?.addEventListener('click', () => modal.classList.remove('active'));
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('active');
-    });
-})();
-
-socket.on('player-stats', (serverStats) => {
-    const stats = PlayerStats.merge(serverStats);
-    const content = $('stats-content');
-    if (!content) return;
-
-    const winRate = stats.votesCast > 0 ? Math.round((stats.wins / stats.votesCast) * 100) : 0;
-
-    content.innerHTML =
-        '<div class="stats-grid">' +
-            '<div class="stat-card"><div class="stat-value">' + stats.gamesPlayed + '</div><div class="stat-label">Gespeeld</div></div>' +
-            '<div class="stat-card win"><div class="stat-value">' + stats.wins + '</div><div class="stat-label">Gewonnen</div></div>' +
-            '<div class="stat-card lose"><div class="stat-value">' + stats.losses + '</div><div class="stat-label">Verloren</div></div>' +
-            '<div class="stat-card"><div class="stat-value">' + winRate + '%</div><div class="stat-label">Win Rate</div></div>' +
-            '<div class="stat-card"><div class="stat-value">' + stats.votesCast + '</div><div class="stat-label">Stemmen</div></div>' +
-            '<div class="stat-card"><div class="stat-value">' + stats.questionsCreated + '</div><div class="stat-label">Vragen</div></div>' +
-        '</div>';
-});
 
 // ─── Room Browser ───────────────────────────────────────────────────
 (function initRoomBrowser() {
@@ -2798,9 +2645,8 @@ socket.on('room-list', (roomList) => {
         if (room.hasTournament) features.push('🏆');
         if (room.hasScoreboard) features.push('📊');
 
-        card.innerHTML =
             '<div class="room-card-header">' +
-                '<span class="room-host">' + escapeHtml(room.hostAvatar || '😎') + ' ' + escapeHtml(room.hostName) + '</span>' +
+                '<span class="room-host">' + escapeHtml(room.hostName) + '</span>' +
                 '<span class="room-code-badge">' + escapeHtml(room.code) + '</span>' +
             '</div>' +
             '<div class="room-card-info">' +
@@ -2816,8 +2662,7 @@ socket.on('room-list', (roomList) => {
                 return;
             }
             $('room-browser-modal')?.classList.remove('active');
-            const selectedAvatar = $('avatar-picker-btn')?.textContent.trim() || '😎';
-            socket.emit('join-room', { roomCode: room.code, playerName: name, avatar: selectedAvatar });
+            socket.emit('join-room', { roomCode: room.code, playerName: name });
         });
 
         list.appendChild(card);
@@ -2871,7 +2716,6 @@ socket.on('room-list', (roomList) => {
         } else {
             el.className = 'chat-msg player';
             el.innerHTML =
-                '<span class="chat-avatar">' + escapeHtml(msg.avatar || '😎') + '</span>' +
                 '<div class="chat-bubble">' +
                     '<span class="chat-name">' + escapeHtml(msg.name) + (msg.isSpectator ? ' 👁️' : '') + '</span>' +
                     '<span class="chat-text">' + escapeHtml(msg.message) + '</span>' +

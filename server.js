@@ -60,19 +60,10 @@ const io = require('socket.io')(http, {
 // ─── Game State ─────────────────────────────────────────────────────
 const rooms = {};
 
-// ─── Player Statistics (persistent in-memory, keyed by session token) ──
-const playerStats = {}; // token -> { name, wins, losses, gamesPlayed, questionsCreated, votescast, lastSeen }
-
 // ─── Reconnect State (60s grace) ────────────────────────────────────
 const disconnectedPlayers = {}; // token -> { roomCode, playerData, votes, timeout, disconnectedAt }
 
-// ─── Avatar Emoji Pool ──────────────────────────────────────────────
-const AVATAR_EMOJIS = [
-    '😎', '🤠', '👻', '🦊', '🐱', '🐶', '🦁', '🐸', '🐨', '🐼',
-    '🦄', '🐲', '🦋', '🌸', '⭐', '🔥', '💎', '🎭', '🎪', '🍄',
-    '🌈', '🎮', '🎯', '🎸', '🚀', '🌙', '🍀', '🎃', '🤖', '👽',
-    '🧙', '🦸', '🧛', '🧜', '🧚', '🎪', '🏆', '💀', '🎩', '🤡'
-];
+
 
 // ─── Would You Rather Questions ─────────────────────────────────────
 const WOULD_YOU_RATHER_QUESTIONS = [
@@ -191,54 +182,7 @@ function getScoreboardData(room) {
     }).sort((a, b) => b.total - a.total);
 }
 
-// ─── Player Statistics Helpers ──────────────────────────────────────
 
-/**
- * Get or create player stats by session token.
- * @param {string} token
- * @param {string} name
- * @returns {object}
- */
-function getPlayerStats(token, name) {
-    if (!token) return null;
-    if (!playerStats[token]) {
-        playerStats[token] = {
-            name: name || 'Speler',
-            wins: 0,
-            losses: 0,
-            gamesPlayed: 0,
-            questionsCreated: 0,
-            votesCast: 0,
-            lastSeen: Date.now()
-        };
-    }
-    if (name) playerStats[token].name = name;
-    playerStats[token].lastSeen = Date.now();
-    return playerStats[token];
-}
-
-/**
- * Update stats after a round finishes.
- * @param {object} room
- * @param {number} winningChoice
- */
-function updatePlayerStatsAfterRound(room, winningChoice) {
-    if (!room) return;
-    Object.entries(room.votes).forEach(([playerId, vote]) => {
-        const player = room.players.find(p => p.id === playerId);
-        if (!player || !player.sessionToken) return;
-        const stats = getPlayerStats(player.sessionToken, player.name);
-        if (!stats) return;
-        stats.votesCast++;
-        if (winningChoice !== 0) {
-            if (vote.choice === winningChoice) {
-                stats.wins++;
-            } else {
-                stats.losses++;
-            }
-        }
-    });
-}
 
 // ─── Anti-DDoS: Per-IP Connection Tracking ──────────────────────────
 const ipConnections = {};
@@ -277,16 +221,7 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
-// ─── Stale Player Stats Cleanup (every 1 hour) ─────────────────────
-setInterval(() => {
-    const now = Date.now();
-    const STATS_STALE_THRESHOLD = 7 * 24 * 60 * 60 * 1000; // 7 days
-    for (const [token, stats] of Object.entries(playerStats)) {
-        if (now - stats.lastSeen > STATS_STALE_THRESHOLD) {
-            delete playerStats[token];
-        }
-    }
-}, 60 * 60 * 1000);
+
 
 /**
  * Safely remove a room and all associated resources.

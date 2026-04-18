@@ -24,11 +24,7 @@
             
             <div class="landing-form">
                 <div class="name-container">
-                    <div class="avatar-name-row">
-                        <button id="avatar-picker-btn" class="avatar-picker-btn" title="Kies je avatar">😎</button>
-                        <input type="text" id="username-input" class="input-field" placeholder="Jouw naam" maxlength="12" autocomplete="off">
-                    </div>
-                    <button id="stats-btn" class="btn small text-btn stats-link">📊 Mijn Statistieken</button>
+                    <input type="text" id="username-input" class="input-field" placeholder="Jouw naam" maxlength="12" autocomplete="off">
                 </div>
 
                 <div class="actions">
@@ -43,25 +39,7 @@
             </div>
         </div>
 
-        <!-- Avatar Picker Modal -->
-        <div id="avatar-modal" class="modal">
-            <div class="modal-content avatar-modal-content">
-                <h3>Kies je Avatar</h3>
-                <div id="avatar-grid" class="avatar-grid"></div>
-                <button id="close-avatar-modal" class="btn secondary">Sluiten</button>
-            </div>
-        </div>
 
-        <!-- Player Stats Modal -->
-        <div id="stats-modal" class="modal">
-            <div class="modal-content stats-modal-content">
-                <h3>📊 Jouw Statistieken</h3>
-                <div id="stats-content" class="stats-content">
-                    <div class="stats-loading">Laden...</div>
-                </div>
-                <button id="close-stats-modal" class="btn secondary">Sluiten</button>
-            </div>
-        </div>
 
         <!-- Room Browser Modal -->
         <div id="room-browser-modal" class="modal">
@@ -616,8 +594,7 @@
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
-    <!-- Emoji Float Container (full screen overlay for floating emojis) -->
-    <div id="emoji-float-container"></div>
+
 
     <!-- Custom Questions Modal -->
     <div id="custom-questions-modal" class="modal">
