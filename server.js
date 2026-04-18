@@ -307,14 +307,7 @@ function isPlayerInRoom(socketId, roomCode) {
     return room.players.some(p => p.id === socketId);
 }
 
-/**
- * Validate that an emoji is from the allowed avatar pool.
- * @param {string} emoji
- * @returns {boolean}
- */
-function isValidAvatar(emoji) {
-    return typeof emoji === 'string' && AVATAR_EMOJIS.includes(emoji);
-}
+
 
 // ─── Anti-DDoS: Per-Socket Rate Limiter ─────────────────────────────
 
@@ -1205,7 +1198,6 @@ io.on('connection', (socket) => {
         timedModeEnabled, timedModeSeconds,
         tournamentEnabled,
         scoreboardEnabled,
-        selectedCategories,
         isPublic,
         avatar
     }) => {
@@ -1214,7 +1206,7 @@ io.on('connection', (socket) => {
         const name = sanitizeName(playerName);
         if (!name || name.length > 12) return;
 
-        const playerAvatar = isValidAvatar(avatar) ? avatar : AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)];
+        const playerAvatar = '😎';
 
         const clampedMaxPlayers = Math.min(Math.max(parseInt(maxPlayers) || 2, 2), 8);
         const validModes = ['dilemma', 'question', 'photo', 'vote-person', 'would-you-rather'];
@@ -1231,10 +1223,6 @@ io.on('connection', (socket) => {
             ? Math.min(Math.max(parseInt(timedModeSeconds) || 15, 5), 60)
             : null;
 
-        const validCategories = ['grappig', 'serieus', 'dark', 'random'];
-        const clampedCategories = Array.isArray(selectedCategories)
-            ? selectedCategories.filter(c => validCategories.includes(c))
-            : [];
 
         const roomCode = generateRoomCode();
 
@@ -1266,7 +1254,7 @@ io.on('connection', (socket) => {
                 timedModeSeconds: clampedTimedSeconds,
                 tournamentEnabled: !!tournamentEnabled,
                 scoreboardEnabled: !!scoreboardEnabled,
-                selectedCategories: clampedCategories,
+                selectedCategories: [],
                 isPublic: !!isPublic
             },
             started: false,
@@ -1323,7 +1311,7 @@ io.on('connection', (socket) => {
         const room = rooms[roomCode];
         if (!room) return socket.emit('error', 'Kamer bestaat niet.');
 
-        const playerAvatar = isValidAvatar(avatar) ? avatar : AVATAR_EMOJIS[Math.floor(Math.random() * AVATAR_EMOJIS.length)];
+        const playerAvatar = '😎';
 
         // If game already started or room is full, join as spectator
         if (room.started || room.players.length >= room.settings.maxPlayers) {
