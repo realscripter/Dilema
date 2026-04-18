@@ -1616,7 +1616,7 @@ socket.on('update-vote-status', (statusList) => {
     statusList.forEach(s => {
         const chip = document.createElement('span');
         chip.className = 'voter-chip' + (s.voted ? ' voted' : '');
-        chip.textContent = (s.avatar || '😎') + ' ' + s.name;
+        chip.textContent = s.name;
         votersProgressContainer.appendChild(chip);
     });
 });
